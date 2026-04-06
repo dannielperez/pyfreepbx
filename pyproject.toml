@@ -7,7 +7,7 @@ name = "pyfreepbx"
 dynamic = ["version"]
 description = "Typed Python library for FreePBX GraphQL API and Asterisk Manager Interface (AMI) — manage extensions, queues, and monitor PBX health."
 readme = "README.md"
-license = "MIT"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [{ name = "Daniel Perez" }]
 keywords = [
@@ -27,7 +27,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
     "Intended Audience :: Telecommunications Industry",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",

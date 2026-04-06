@@ -3,7 +3,7 @@
 [![CI](https://github.com/dperez/pyfreepbx/actions/workflows/ci.yml/badge.svg)](https://github.com/dperez/pyfreepbx/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/pyfreepbx)](https://pypi.org/project/pyfreepbx/)
 [![Python versions](https://img.shields.io/pypi/pyversions/pyfreepbx)](https://pypi.org/project/pyfreepbx/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Typed](https://img.shields.io/badge/typing-typed-blue)](https://peps.python.org/pep-0561/)
 
 A typed Python library for **Asterisk AMI** and **experimental FreePBX GraphQL** integration.
@@ -169,4 +169,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 Daniel Perez
+[Apache-2.0](LICENSE) — Copyright 2026 Daniel Perez
