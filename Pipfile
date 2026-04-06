@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyfreepbx = {editable = true, path = "."}
+
+[dev-packages]
+pytest = ">=8.0"
+pytest-cov = ">=5.0"
+respx = ">=0.21"
+ruff = ">=0.4"
+mypy = ">=1.10"
+
+[requires]
+python_version = "3.13"
