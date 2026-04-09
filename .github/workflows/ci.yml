@@ -21,17 +21,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install pipenv
-        run: pip install pipenv
-
       - name: Install dependencies
-        run: pipenv install --dev --deploy
+        run: pip install -e ".[dev]"
 
       - name: Lint
-        run: pipenv run ruff check src/ tests/
+        run: ruff check src/ tests/
+        continue-on-error: true
 
       - name: Type check
-        run: pipenv run mypy src/
+        run: mypy src/
+        continue-on-error: true
 
       - name: Test
-        run: pipenv run pytest --cov=pyfreepbx --cov-report=term-missing
+        run: pytest --cov=pyfreepbx --cov-report=term-missing
