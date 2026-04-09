@@ -46,11 +46,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/dperez/pyfreepbx"
-Repository = "https://github.com/dperez/pyfreepbx"
-Documentation = "https://github.com/dperez/pyfreepbx#readme"
-Issues = "https://github.com/dperez/pyfreepbx/issues"
-Changelog = "https://github.com/dperez/pyfreepbx/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/dannielperez/pyfreepbx"
+Repository = "https://github.com/dannielperez/pyfreepbx"
+Documentation = "https://github.com/dannielperez/pyfreepbx#readme"
+Issues = "https://github.com/dannielperez/pyfreepbx/issues"
+Changelog = "https://github.com/dannielperez/pyfreepbx/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
