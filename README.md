@@ -56,12 +56,32 @@ with FreePBX.from_env() as pbx:
 Or with explicit configuration:
 
 ```python
+# OAuth2 (preferred)
 pbx = FreePBX(
     host="pbx.example.com",
-    api_token="your-api-token",
+    client_id="my-client-id",
+    client_secret="my-client-secret",
     ami_username="admin",       # optional — enables live stats
     ami_secret="your-secret",
 )
+
+# From a full URL (extracts host, port, api_base_path)
+pbx = FreePBX.from_url(
+    "https://pbx.example.com:2443/admin/api/api",
+    client_id="my-client-id",
+    client_secret="my-client-secret",
+)
+
+# From a config dict (framework integration)
+pbx = FreePBX.from_dict({
+    "url": "https://pbx.example.com:2443/admin/api/api",
+    "client_id": "my-client-id",
+    "client_secret": "my-client-secret",
+})
+
+# Combined status snapshot (health + extensions + queues)
+result = pbx.status()
+print(f"Health: {result.health.overall.value}, Extensions: {result.extension_count}")
 ```
 
 ## Environment Variables
@@ -69,10 +89,15 @@ pbx = FreePBX(
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `FREEPBX_HOST` | Yes | — | FreePBX hostname or IP |
-| `FREEPBX_API_TOKEN` | Yes | — | Bearer token for GraphQL API |
+| `FREEPBX_CLIENT_ID` | Auth ¹ | — | OAuth2 client ID (preferred) |
+| `FREEPBX_CLIENT_SECRET` | Auth ¹ | — | OAuth2 client secret |
+| `FREEPBX_API_TOKEN` | Auth ¹ | — | Static Bearer token (legacy) |
 | `FREEPBX_PORT` | No | `443` | HTTPS port |
+| `FREEPBX_API_BASE_PATH` | No | `/admin/api/api` | API path prefix |
 | `FREEPBX_VERIFY_SSL` | No | `true` | Verify TLS certificates |
 | `FREEPBX_TIMEOUT` | No | `30` | HTTP timeout (seconds) |
+
+¹ Provide either `FREEPBX_CLIENT_ID` + `FREEPBX_CLIENT_SECRET` (OAuth2) or `FREEPBX_API_TOKEN` (static token).
 | `AMI_HOST` | No | `FREEPBX_HOST` | AMI hostname |
 | `AMI_PORT` | No | `5038` | AMI TCP port |
 | `AMI_USERNAME` | No | — | AMI login username |
@@ -86,7 +111,11 @@ FreePBX (facade)
 ├── .extensions   →  ExtensionService  →  FreePBXClient (GraphQL) ⚠ experimental
 ├── .queues       →  QueueService      →  FreePBXClient (config, ⚠ experimental) + AMIClient (live, stable)
 ├── .health       →  HealthService     →  FreePBXClient + AMIClient (stable)
-└── .system       →  SystemService     →  AMIClient (stable)
+├── .system       →  SystemService     →  AMIClient (stable)
+├── .rest         →  RestClient        →  GET/POST/PUT/DELETE escape hatch
+├── .status()     →  StatusResult      →  Combined health + extensions + queues
+├── .from_url()   →  Construct from full URL (parses host/port/path)
+└── .from_dict()  →  Construct from config dict (framework integration)
 ```
 
 **Design principles:**
@@ -96,6 +125,20 @@ FreePBX (facade)
 - `NotSupportedError` for operations not confirmed via schema introspection
 
 ## API Overview
+
+### Combined Status
+
+```python
+result = pbx.status()  # → StatusResult (health + extensions + queues in one call)
+result.ok              # bool — True unless health is "down"
+result.health          # HealthSummary | None
+result.extensions      # list[Extension]
+result.extension_count # int
+result.queues          # list[Queue]
+result.queue_count     # int
+result.endpoints       # EndpointSummary | None (AMI only)
+result.error           # str
+```
 
 ### Health (stable)
 

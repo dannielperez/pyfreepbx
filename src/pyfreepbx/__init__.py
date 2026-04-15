@@ -13,6 +13,7 @@ from pyfreepbx.exceptions import (
     NotSupportedError,
 )
 from pyfreepbx.facade import FreePBX
+from pyfreepbx.models.health import StatusResult
 
 __all__ = [
     "AMIAuthError",
@@ -25,5 +26,6 @@ __all__ = [
     "GraphQLError",
     "NotFoundError",
     "NotSupportedError",
+    "StatusResult",
     "__version__",
 ]

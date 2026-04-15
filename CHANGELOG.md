@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `FreePBX.from_url(url, **kwargs)` — construct from a full URL; auto-extracts host, port, api_base_path.
+- `FreePBX.from_dict(config)` — construct from a configuration dictionary; accepts `url` or `host` key.
+- `FreePBX._parse_url()` — static helper for URL decomposition (bare hostnames accepted).
+- `FreePBX.status() → StatusResult` — combined query returning health, extensions, queues, and endpoint summary in one call with graceful per-sub-query degradation.
+- `StatusResult` model — Pydantic model bundling ok, error, health, extensions, queues, endpoints.
+- Exported `StatusResult` from top-level `pyfreepbx` package.
+- Exported `EndpointSummary` from `pyfreepbx.models`.
+
 ### Fixed
 - Added `hatch-vcs` `fallback-version = "0.0.0"` for Docker builds without VCS metadata.
 - Removed hardcoded example host from `.env.example`.

@@ -3,11 +3,25 @@
 Usage:
     from pyfreepbx import FreePBX
 
+    # From explicit args
+    pbx = FreePBX(host="pbx.example.com", client_id="...", client_secret="...")
+
+    # From a full URL (extracts host, port, api_base_path)
+    pbx = FreePBX.from_url("https://pbx.example.com:2443/admin/api/api", ...)
+
+    # From a config dict (framework integration)
+    pbx = FreePBX.from_dict({"host": "pbx.example.com", "client_id": "...", ...})
+
+    # From environment variables
     pbx = FreePBX.from_env()
-    pbx.extensions.list()
+
+    # Combined status (health + extensions + queues)
+    result = pbx.status()
 """
 
 from __future__ import annotations
+
+from urllib.parse import urlparse
 
 from pyfreepbx.clients.ami import AMIClient
 from pyfreepbx.clients.freepbx import FreePBXClient
@@ -16,6 +30,7 @@ from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.config import AMIConfig, FreePBXConfig
 from pyfreepbx.exceptions import ConfigError
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.health import StatusResult
 from pyfreepbx.services.extensions import ExtensionService
 from pyfreepbx.services.health import HealthService
 from pyfreepbx.services.queues import QueueService
@@ -149,6 +164,85 @@ class FreePBX:
             ami_timeout=float(os.environ.get("AMI_TIMEOUT", "10")),
         )
 
+    @classmethod
+    def from_url(
+        cls,
+        url: str,
+        *,
+        api_token: str = "",
+        client_id: str = "",
+        client_secret: str = "",
+        verify_ssl: bool = True,
+        timeout: float = 30.0,
+        ami_host: str | None = None,
+        ami_port: int = 5038,
+        ami_username: str | None = None,
+        ami_secret: str | None = None,
+        ami_timeout: float = 10.0,
+    ) -> FreePBX:
+        """Create a FreePBX instance from a full URL.
+
+        Parses ``url`` to extract host, port, and api_base_path.
+        Accepts bare hostnames as well (``pbx.example.com``).
+
+        Example::
+
+            pbx = FreePBX.from_url(
+                "https://pbx.example.com:2443/admin/api/api",
+                client_id="my_id",
+                client_secret="my_secret",
+            )
+        """
+        host, port, api_base_path = cls._parse_url(url)
+        return cls(
+            host=host,
+            port=port,
+            api_base_path=api_base_path,
+            api_token=api_token,
+            client_id=client_id,
+            client_secret=client_secret,
+            verify_ssl=verify_ssl,
+            timeout=timeout,
+            ami_host=ami_host,
+            ami_port=ami_port,
+            ami_username=ami_username,
+            ami_secret=ami_secret,
+            ami_timeout=ami_timeout,
+        )
+
+    @classmethod
+    def from_dict(cls, config: dict) -> FreePBX:
+        """Create a FreePBX instance from a configuration dictionary.
+
+        Convenience for framework integration. Accepts the same keys as
+        the constructor, plus ``url`` (parsed via :meth:`from_url` logic).
+
+        If ``url`` is present it overrides ``host``, ``port``, and
+        ``api_base_path``.
+        """
+        config = dict(config)  # shallow copy
+
+        url = config.pop("url", None)
+        if url:
+            host, port, api_base_path = cls._parse_url(url)
+            config.setdefault("host", host)
+            config.setdefault("port", port)
+            config.setdefault("api_base_path", api_base_path)
+
+        if "host" not in config:
+            raise ConfigError("Either 'url' or 'host' must be provided in config dict.")
+
+        return cls(**config)
+
+    @staticmethod
+    def _parse_url(url: str) -> tuple[str, int, str]:
+        """Extract (hostname, port, api_base_path) from a URL or bare hostname."""
+        parsed = urlparse(url if "://" in url else f"https://{url}")
+        hostname = parsed.hostname or url
+        port = parsed.port or 443
+        api_base_path = parsed.path.rstrip("/") or "/admin/api/api"
+        return hostname, port, api_base_path
+
     # ------------------------------------------------------------------
     # Service accessors
     # ------------------------------------------------------------------
@@ -194,6 +288,56 @@ class FreePBX:
         self._ami_client.connect()
         self._ami_client.login()
         log.info("AMI connected: %s", self._ami_client.banner)
+
+    # ------------------------------------------------------------------
+    # Combined queries
+    # ------------------------------------------------------------------
+
+    def status(self) -> StatusResult:
+        """Combined status snapshot: health + extensions + queues.
+
+        Collects health, extension list, and queue list in one call.
+        Individual sub-queries that fail are logged and skipped so
+        the result always returns.
+
+        If AMI is configured, endpoint registration summary is included.
+        """
+        result = StatusResult()
+
+        try:
+            health = self._health.summary()
+            result.health = health
+            result.ok = health.overall.value != "down"
+        except Exception as exc:
+            log.warning("Health check failed: %s", exc)
+            result.error = str(exc)
+            return result
+
+        # Extensions via GraphQL
+        try:
+            extensions = self._extensions.list()
+            result.extensions = extensions
+            result.extension_count = len(extensions)
+        except Exception as exc:
+            log.debug("Extension listing skipped: %s", exc)
+
+        # Queues via GraphQL
+        try:
+            queues = self._queues.list()
+            result.queues = queues
+            result.queue_count = len(queues)
+        except Exception as exc:
+            log.debug("Queue listing skipped: %s", exc)
+
+        # Endpoint registration summary (AMI only)
+        try:
+            endpoints = self._health.endpoint_summary()
+            if endpoints is not None:
+                result.endpoints = endpoints
+        except Exception as exc:
+            log.debug("Endpoint summary skipped (AMI): %s", exc)
+
+        return result
 
     # ------------------------------------------------------------------
     # Lifecycle

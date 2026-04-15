@@ -51,3 +51,20 @@ class EndpointSummary(BaseModel):
     unregistered: int = 0
     unavailable: int = 0
     unknown: int = 0
+
+
+class StatusResult(BaseModel):
+    """Combined status snapshot from a FreePBX instance.
+
+    Returned by ``FreePBX.status()``. Bundles health, extension,
+    and queue information into a single result.
+    """
+
+    ok: bool = False
+    error: str = ""
+    health: HealthSummary | None = None
+    extensions: list = []
+    extension_count: int = 0
+    queues: list = []
+    queue_count: int = 0
+    endpoints: EndpointSummary | None = None
