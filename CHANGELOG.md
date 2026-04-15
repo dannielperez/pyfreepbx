@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Added `hatch-vcs` `fallback-version = "0.0.0"` for Docker builds without VCS metadata.
+- Removed hardcoded example host from `.env.example`.
+
+## [Unreleased - Initial]
+
 ### Added
 - `FreePBX` facade with `from_env()` and explicit configuration
 - `ExtensionService` — list and get extensions via GraphQL
