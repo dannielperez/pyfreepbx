@@ -7,15 +7,37 @@ from pydantic_settings import BaseSettings
 
 
 class FreePBXConfig(BaseSettings):
-    """Configuration for the FreePBX GraphQL API connection."""
+    """Configuration for the FreePBX API connection.
+
+    Supports two authentication modes:
+
+    1. **OAuth2 (preferred)** — set ``client_id`` and ``client_secret``.
+       Tokens are fetched/refreshed automatically from the ``/token`` endpoint.
+    2. **Static token (legacy)** — set ``api_token`` with a pre-obtained
+       Bearer token.
+
+    The ``api_base_path`` defaults to ``/admin/api/api`` which is the standard
+    FreePBX API prefix. All endpoint paths (``/token``, ``/gql``, ``/rest``,
+    ``/authorize``) are appended to this base.
+    """
 
     model_config = {"env_prefix": "FREEPBX_"}
 
     host: str = Field(description="FreePBX hostname or IP address")
-    api_token: str = Field(description="Bearer token for GraphQL API authentication")
     port: int = Field(default=443, description="HTTPS port")
     verify_ssl: bool = Field(default=True, description="Verify TLS certificates")
     timeout: float = Field(default=30.0, description="HTTP request timeout in seconds")
+    api_base_path: str = Field(
+        default="/admin/api/api",
+        description="Base path for the FreePBX API (token, gql, rest, authorize endpoints live under this)",
+    )
+
+    # OAuth2 credentials (preferred)
+    client_id: str = Field(default="", description="OAuth2 client ID for client_credentials grant")
+    client_secret: str = Field(default="", description="OAuth2 client secret")
+
+    # Static token (legacy / backward-compatible)
+    api_token: str = Field(default="", description="Pre-obtained Bearer token (used when OAuth2 credentials are not set)")
 
     @property
     def base_url(self) -> str:
@@ -24,7 +46,24 @@ class FreePBXConfig(BaseSettings):
 
     @property
     def graphql_url(self) -> str:
-        return f"{self.base_url}/admin/api/api/gql"
+        return f"{self.base_url}{self.api_base_path}/gql"
+
+    @property
+    def rest_url(self) -> str:
+        return f"{self.base_url}{self.api_base_path}/rest"
+
+    @property
+    def token_url(self) -> str:
+        return f"{self.base_url}{self.api_base_path}/token"
+
+    @property
+    def authorize_url(self) -> str:
+        return f"{self.base_url}{self.api_base_path}/authorize"
+
+    @property
+    def has_oauth2(self) -> bool:
+        """Whether OAuth2 credentials are configured."""
+        return bool(self.client_id and self.client_secret)
 
 
 class AMIConfig(BaseSettings):

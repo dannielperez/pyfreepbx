@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from pyfreepbx.clients.ami import AMIClient
 from pyfreepbx.clients.freepbx import FreePBXClient
+from pyfreepbx.clients.oauth import OAuth2Client
+from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.config import AMIConfig, FreePBXConfig
 from pyfreepbx.exceptions import ConfigError
 from pyfreepbx.logging import get_logger
@@ -33,8 +35,11 @@ class FreePBX:
         self,
         *,
         host: str,
-        api_token: str,
+        api_token: str = "",
+        client_id: str = "",
+        client_secret: str = "",
         port: int = 443,
+        api_base_path: str = "/admin/api/api",
         verify_ssl: bool = True,
         timeout: float = 30.0,
         ami_host: str | None = None,
@@ -47,11 +52,25 @@ class FreePBX:
         self._gql_config = FreePBXConfig(
             host=host,
             api_token=api_token,
+            client_id=client_id,
+            client_secret=client_secret,
             port=port,
+            api_base_path=api_base_path,
             verify_ssl=verify_ssl,
             timeout=timeout,
         )
-        self._client = FreePBXClient(self._gql_config)
+
+        # OAuth2 token provider (when credentials are set)
+        self._oauth: OAuth2Client | None = None
+        token_provider = None
+        if self._gql_config.has_oauth2:
+            self._oauth = OAuth2Client(self._gql_config)
+            token_provider = self._oauth
+
+        self._client = FreePBXClient(self._gql_config, token_provider=token_provider)
+
+        # REST client
+        self._rest_client = RestClient(self._gql_config, token_provider=token_provider)
 
         # AMI config (optional — needed for live stats and admin actions)
         self._ami_client: AMIClient | None = None
@@ -77,33 +96,50 @@ class FreePBX:
     def from_env(cls) -> FreePBX:
         """Create a FreePBX instance from environment variables.
 
+        Authentication (one of):
+            FREEPBX_CLIENT_ID + FREEPBX_CLIENT_SECRET — OAuth2 client_credentials (preferred)
+            FREEPBX_API_TOKEN — static Bearer token (legacy)
+
         Required env vars:
-            FREEPBX_HOST, FREEPBX_API_TOKEN
+            FREEPBX_HOST
 
         Optional env vars (enable AMI features):
             AMI_HOST (defaults to FREEPBX_HOST),
             AMI_USERNAME, AMI_SECRET,
             AMI_PORT (default 5038), AMI_TIMEOUT (default 10)
 
-        Optional env vars (GraphQL tuning):
+        Optional env vars (GraphQL/REST tuning):
             FREEPBX_PORT (default 443),
+            FREEPBX_API_BASE_PATH (default /admin/api/api),
             FREEPBX_VERIFY_SSL (default true),
             FREEPBX_TIMEOUT (default 30)
         """
         import os
 
         host = os.environ.get("FREEPBX_HOST")
-        api_token = os.environ.get("FREEPBX_API_TOKEN")
-        if not host or not api_token:
+        if not host:
             raise ConfigError(
-                "FREEPBX_HOST and FREEPBX_API_TOKEN environment variables are required. "
-                "Set them or use FreePBX(...) with explicit arguments."
+                "FREEPBX_HOST environment variable is required. "
+                "Set it or use FreePBX(...) with explicit arguments."
+            )
+
+        client_id = os.environ.get("FREEPBX_CLIENT_ID", "")
+        client_secret = os.environ.get("FREEPBX_CLIENT_SECRET", "")
+        api_token = os.environ.get("FREEPBX_API_TOKEN", "")
+
+        if not (client_id and client_secret) and not api_token:
+            raise ConfigError(
+                "Either FREEPBX_CLIENT_ID + FREEPBX_CLIENT_SECRET (OAuth2) or "
+                "FREEPBX_API_TOKEN (static token) must be set."
             )
 
         return cls(
             host=host,
             api_token=api_token,
+            client_id=client_id,
+            client_secret=client_secret,
             port=int(os.environ.get("FREEPBX_PORT", "443")),
+            api_base_path=os.environ.get("FREEPBX_API_BASE_PATH", "/admin/api/api"),
             verify_ssl=os.environ.get("FREEPBX_VERIFY_SSL", "true").lower() in ("true", "1"),
             timeout=float(os.environ.get("FREEPBX_TIMEOUT", "30")),
             ami_host=os.environ.get("AMI_HOST"),
@@ -133,6 +169,11 @@ class FreePBX:
     def health(self) -> HealthService:
         return self._health
 
+    @property
+    def rest(self) -> RestClient:
+        """Low-level REST API client for ``/rest`` endpoints."""
+        return self._rest_client
+
     # ------------------------------------------------------------------
     # AMI connection management
     # ------------------------------------------------------------------
@@ -161,6 +202,9 @@ class FreePBX:
     def close(self) -> None:
         """Close all connections."""
         self._client.close()
+        self._rest_client.close()
+        if self._oauth is not None:
+            self._oauth.close()
         if self._ami_client is not None:
             self._ami_client.disconnect()
 

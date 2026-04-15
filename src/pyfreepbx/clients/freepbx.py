@@ -82,9 +82,9 @@ class FreePBXClient:
     should depend on this class rather than calling GraphQL directly.
     """
 
-    def __init__(self, config: FreePBXConfig) -> None:
+    def __init__(self, config: FreePBXConfig, *, token_provider: Any = None) -> None:
         self._config = config
-        self._gql = GraphQLClient(config)
+        self._gql = GraphQLClient(config, token_provider=token_provider)
 
     @property
     def graphql(self) -> GraphQLClient:
