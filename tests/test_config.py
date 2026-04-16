@@ -15,8 +15,12 @@ class TestFreePBXConfig:
         assert cfg.base_url == "https://pbx.local:443"
 
     def test_base_url_http(self) -> None:
-        cfg = FreePBXConfig(host="pbx.local", api_token="tok", port=8080)
+        cfg = FreePBXConfig(host="pbx.local", api_token="tok", port=8080, scheme="http")
         assert cfg.base_url == "http://pbx.local:8080"
+
+    def test_base_url_https_non_standard_port(self) -> None:
+        cfg = FreePBXConfig(host="pbx.local", api_token="tok", port=2443)
+        assert cfg.base_url == "https://pbx.local:2443"
 
     def test_graphql_url(self) -> None:
         cfg = FreePBXConfig(host="pbx.local", api_token="tok")
@@ -44,9 +48,9 @@ class TestFreePBXConfig:
 
     def test_custom_api_base_path(self) -> None:
         cfg = FreePBXConfig(host="pbx.local", port=2443, api_base_path="/custom/api")
-        assert cfg.graphql_url == "http://pbx.local:2443/custom/api/gql"
-        assert cfg.rest_url == "http://pbx.local:2443/custom/api/rest"
-        assert cfg.token_url == "http://pbx.local:2443/custom/api/token"
+        assert cfg.graphql_url == "https://pbx.local:2443/custom/api/gql"
+        assert cfg.rest_url == "https://pbx.local:2443/custom/api/rest"
+        assert cfg.token_url == "https://pbx.local:2443/custom/api/token"
 
     def test_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("FREEPBX_HOST", "env-host")

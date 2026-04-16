@@ -54,6 +54,7 @@ class FreePBX:
         client_id: str = "",
         client_secret: str = "",
         port: int = 443,
+        scheme: str = "https",
         api_base_path: str = "/admin/api/api",
         verify_ssl: bool = True,
         timeout: float = 30.0,
@@ -70,6 +71,7 @@ class FreePBX:
             client_id=client_id,
             client_secret=client_secret,
             port=port,
+            scheme=scheme,
             api_base_path=api_base_path,
             verify_ssl=verify_ssl,
             timeout=timeout,
@@ -179,11 +181,15 @@ class FreePBX:
         ami_username: str | None = None,
         ami_secret: str | None = None,
         ami_timeout: float = 10.0,
+        **kwargs,
     ) -> FreePBX:
         """Create a FreePBX instance from a full URL.
 
-        Parses ``url`` to extract host, port, and api_base_path.
+        Parses ``url`` to extract scheme, host, port, and api_base_path.
         Accepts bare hostnames as well (``pbx.example.com``).
+
+        Any extra keyword arguments (e.g. ``port``) override the
+        values extracted from the URL.
 
         Example::
 
@@ -193,10 +199,13 @@ class FreePBX:
                 client_secret="my_secret",
             )
         """
-        host, port, api_base_path = cls._parse_url(url)
+        scheme, host, port, api_base_path = cls._parse_url(url)
+        # Allow explicit kwargs to override URL-derived values
+        port = kwargs.pop("port", port)
         return cls(
             host=host,
             port=port,
+            scheme=scheme,
             api_base_path=api_base_path,
             api_token=api_token,
             client_id=client_id,
@@ -224,7 +233,8 @@ class FreePBX:
 
         url = config.pop("url", None)
         if url:
-            host, port, api_base_path = cls._parse_url(url)
+            scheme, host, port, api_base_path = cls._parse_url(url)
+            config.setdefault("scheme", scheme)
             config.setdefault("host", host)
             config.setdefault("port", port)
             config.setdefault("api_base_path", api_base_path)
@@ -235,13 +245,19 @@ class FreePBX:
         return cls(**config)
 
     @staticmethod
-    def _parse_url(url: str) -> tuple[str, int, str]:
-        """Extract (hostname, port, api_base_path) from a URL or bare hostname."""
-        parsed = urlparse(url if "://" in url else f"https://{url}")
+    def _parse_url(url: str) -> tuple[str, str, int, str]:
+        """Extract (scheme, hostname, port, api_base_path) from a URL or bare hostname."""
+        has_scheme = "://" in url
+        parsed = urlparse(url if has_scheme else f"https://{url}")
         hostname = parsed.hostname or url
         port = parsed.port or 443
         api_base_path = parsed.path.rstrip("/") or "/admin/api/api"
-        return hostname, port, api_base_path
+        if has_scheme:
+            scheme = parsed.scheme or "https"
+        else:
+            # No explicit scheme — infer from port
+            scheme = "http" if port in (80, 81, 82, 83) else "https"
+        return scheme, hostname, port, api_base_path
 
     # ------------------------------------------------------------------
     # Service accessors

@@ -25,6 +25,7 @@ class FreePBXConfig(BaseSettings):
 
     host: str = Field(description="FreePBX hostname or IP address")
     port: int = Field(default=443, description="HTTPS port")
+    scheme: str = Field(default="https", description="URL scheme (https or http)")
     verify_ssl: bool = Field(default=True, description="Verify TLS certificates")
     timeout: float = Field(default=30.0, description="HTTP request timeout in seconds")
     api_base_path: str = Field(
@@ -41,8 +42,7 @@ class FreePBXConfig(BaseSettings):
 
     @property
     def base_url(self) -> str:
-        scheme = "https" if self.port == 443 else "http"
-        return f"{scheme}://{self.host}:{self.port}"
+        return f"{self.scheme}://{self.host}:{self.port}"
 
     @property
     def graphql_url(self) -> str:
