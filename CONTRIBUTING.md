@@ -5,17 +5,18 @@ Thanks for your interest in contributing.
 ## Development Setup
 
 ```bash
-git clone https://github.com/dperez/pyfreepbx.git
+git clone https://github.com/dannielperez/pyfreepbx.git
 cd pyfreepbx
-pipenv install --dev
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
 ## Running Checks
 
 ```bash
-pipenv run pytest                    # unit tests
-pipenv run ruff check src/ tests/    # lint
-pipenv run mypy src/                 # type check
+pytest                    # unit tests
+ruff check src/ tests/    # lint
+mypy src/                 # type check
 ```
 
 All three must pass before submitting a PR.

@@ -1,9 +1,9 @@
 # pyfreepbx
 
-[![CI](https://github.com/dperez/pyfreepbx/actions/workflows/ci.yml/badge.svg)](https://github.com/dperez/pyfreepbx/actions/workflows/ci.yml)
+[![CI](https://github.com/dannielperez/pyfreepbx/actions/workflows/ci.yml/badge.svg)](https://github.com/dannielperez/pyfreepbx/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/pyfreepbx)](https://pypi.org/project/pyfreepbx/)
 [![Python versions](https://img.shields.io/pypi/pyversions/pyfreepbx)](https://pypi.org/project/pyfreepbx/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/pypi/l/pyfreepbx)](https://github.com/dannielperez/pyfreepbx/blob/main/LICENSE)
 [![Typed](https://img.shields.io/badge/typing-typed-blue)](https://peps.python.org/pep-0561/)
 
 A typed Python library for **Asterisk AMI** and **experimental FreePBX GraphQL** integration.
@@ -96,13 +96,13 @@ print(f"Health: {result.health.overall.value}, Extensions: {result.extension_cou
 | `FREEPBX_API_BASE_PATH` | No | `/admin/api/api` | API path prefix |
 | `FREEPBX_VERIFY_SSL` | No | `true` | Verify TLS certificates |
 | `FREEPBX_TIMEOUT` | No | `30` | HTTP timeout (seconds) |
-
-¹ Provide either `FREEPBX_CLIENT_ID` + `FREEPBX_CLIENT_SECRET` (OAuth2) or `FREEPBX_API_TOKEN` (static token).
 | `AMI_HOST` | No | `FREEPBX_HOST` | AMI hostname |
 | `AMI_PORT` | No | `5038` | AMI TCP port |
 | `AMI_USERNAME` | No | — | AMI login username |
 | `AMI_SECRET` | No | — | AMI login secret |
 | `AMI_TIMEOUT` | No | `10` | AMI socket timeout (seconds) |
+
+¹ Provide either `FREEPBX_CLIENT_ID` + `FREEPBX_CLIENT_SECRET` (OAuth2) or `FREEPBX_API_TOKEN` (static token).
 
 ## Architecture
 
@@ -183,16 +183,17 @@ pbx.extensions.get("1001")     # → Extension          ⚠ provisional query
 ## Development
 
 ```bash
-git clone https://github.com/dperez/pyfreepbx.git
+git clone https://github.com/dannielperez/pyfreepbx.git
 cd pyfreepbx
-pipenv install --dev
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
 ```bash
-pipenv run pytest                                  # run tests
-pipenv run pytest --cov=pyfreepbx --cov-report=term-missing  # with coverage
-pipenv run ruff check src/ tests/                  # lint
-pipenv run mypy src/                               # type check
+pytest                                  # run tests
+pytest --cov=pyfreepbx --cov-report=term-missing  # with coverage
+ruff check src/ tests/                  # lint
+mypy src/                               # type check
 ```
 
 ## Known Limitations
