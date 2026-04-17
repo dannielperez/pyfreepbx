@@ -23,7 +23,13 @@ import httpx
 
 from pyfreepbx.clients.base import BaseClient
 from pyfreepbx.config import FreePBXConfig
-from pyfreepbx.exceptions import AuthenticationError, NotFoundError
+from pyfreepbx.exceptions import (
+    AuthenticationError,
+    FreePBXConflictError,
+    FreePBXTransportError,
+    FreePBXValidationError,
+    NotFoundError,
+)
 from pyfreepbx.logging import get_logger
 
 log = get_logger("clients.rest")
@@ -77,6 +83,16 @@ class RestClient(BaseClient):
             raise AuthenticationError(f"REST API authentication failed: HTTP {response.status_code}")
         if response.status_code == 404:
             raise NotFoundError(f"REST resource not found: {response.url}")
+        if response.status_code == 409:
+            raise FreePBXConflictError(f"Resource conflict: {response.url}")
+        if response.status_code == 422:
+            details = None
+            if response.headers.get("content-type", "").startswith("application/json"):
+                details = response.json()
+            raise FreePBXValidationError(
+                f"Validation failed: {response.url}",
+                details=details,
+            )
         response.raise_for_status()
         if response.headers.get("content-type", "").startswith("application/json"):
             return response.json()
@@ -89,25 +105,37 @@ class RestClient(BaseClient):
     def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
         """Send a GET request to the REST API."""
         log.debug("REST GET %s", path)
-        response = self._http.get(self._url(path), params=params, headers=self._auth_headers())
+        try:
+            response = self._http.get(self._url(path), params=params, headers=self._auth_headers())
+        except httpx.TransportError as exc:
+            raise FreePBXTransportError(f"Transport error on GET {path}: {exc}") from exc
         return self._handle_response(response)
 
     def post(self, path: str, *, json: dict[str, Any] | None = None, data: dict[str, Any] | None = None) -> Any:
         """Send a POST request to the REST API."""
         log.debug("REST POST %s", path)
-        response = self._http.post(self._url(path), json=json, data=data, headers=self._auth_headers())
+        try:
+            response = self._http.post(self._url(path), json=json, data=data, headers=self._auth_headers())
+        except httpx.TransportError as exc:
+            raise FreePBXTransportError(f"Transport error on POST {path}: {exc}") from exc
         return self._handle_response(response)
 
     def put(self, path: str, *, json: dict[str, Any] | None = None) -> Any:
         """Send a PUT request to the REST API."""
         log.debug("REST PUT %s", path)
-        response = self._http.put(self._url(path), json=json, headers=self._auth_headers())
+        try:
+            response = self._http.put(self._url(path), json=json, headers=self._auth_headers())
+        except httpx.TransportError as exc:
+            raise FreePBXTransportError(f"Transport error on PUT {path}: {exc}") from exc
         return self._handle_response(response)
 
     def delete(self, path: str) -> Any:
         """Send a DELETE request to the REST API."""
         log.debug("REST DELETE %s", path)
-        response = self._http.delete(self._url(path), headers=self._auth_headers())
+        try:
+            response = self._http.delete(self._url(path), headers=self._auth_headers())
+        except httpx.TransportError as exc:
+            raise FreePBXTransportError(f"Transport error on DELETE {path}: {exc}") from exc
         return self._handle_response(response)
 
     def close(self) -> None:

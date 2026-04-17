@@ -46,3 +46,19 @@ class NotSupportedError(FreePBXError):
     that hasn't been confirmed to exist. Prefer this over silently faking
     behavior — it tells library consumers exactly what to expect.
     """
+
+
+class FreePBXValidationError(FreePBXError):
+    """Server rejected the payload due to validation errors (HTTP 422)."""
+
+    def __init__(self, message: str, details: dict | list | None = None) -> None:
+        super().__init__(message)
+        self.details = details or {}
+
+
+class FreePBXConflictError(FreePBXError):
+    """Resource conflict (HTTP 409) — e.g. duplicate extension number."""
+
+
+class FreePBXTransportError(FreePBXError):
+    """Network-level failure (timeout, connection refused, DNS error)."""

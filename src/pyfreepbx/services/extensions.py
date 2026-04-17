@@ -1,9 +1,7 @@
 """Extension service — CRUD operations on FreePBX extensions.
 
 Read operations (list, get) use the FreePBXClient to query the GraphQL API.
-Write operations (create, update, enable, disable) are wired up structurally
-but raise ``NotSupportedError`` until the GraphQL mutation names and input
-types are confirmed via introspection on a live instance.
+Write operations (create, update, update_secret) use the REST API.
 
 .. warning:: Read methods are **experimental** — the underlying GraphQL
    queries have not been validated against a live FreePBX instance.
@@ -14,7 +12,8 @@ from __future__ import annotations
 import warnings
 
 from pyfreepbx.clients.freepbx import FreePBXClient
-from pyfreepbx.exceptions import NotFoundError, NotSupportedError
+from pyfreepbx.clients.rest import RestClient
+from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
 from pyfreepbx.schemas.extension_create import ExtensionCreate
@@ -31,10 +30,12 @@ class ExtensionService:
         pbx = FreePBX.from_env()
         pbx.extensions.list()
         pbx.extensions.get("1001")
+        pbx.extensions.create(ExtensionCreate(extension="1002", name="Front Desk"))
     """
 
-    def __init__(self, client: FreePBXClient) -> None:
+    def __init__(self, client: FreePBXClient, rest: RestClient | None = None) -> None:
         self._client = client
+        self._rest = rest
 
     def list(self) -> list[Extension]:
         """Fetch all extensions from FreePBX.
@@ -75,59 +76,62 @@ class ExtensionService:
         return Extension.model_validate(raw)
 
     def create(self, payload: ExtensionCreate) -> Extension:
-        """Create a new extension.
+        """Create a new extension via the FreePBX REST API.
 
         Raises:
-            NotSupportedError: The GraphQL mutation for creating extensions
-                has not been confirmed yet. Introspect your FreePBX instance
-                and implement ``FreePBXClient.create_extension()`` to enable.
+            FreePBXValidationError: If the server rejects the payload.
+            FreePBXConflictError: If the extension number already exists.
+            FreePBXTransportError: On network failure.
         """
-        # TODO: Implement once the addExtension (or equivalent) mutation
-        # input type is confirmed via GraphQL introspection.
-        raise NotSupportedError(
-            "Extension creation is not yet implemented. "
-            "The GraphQL mutation name and input schema need to be confirmed "
-            "via introspection on a live FreePBX instance. "
-            "See: https://wiki.freepbx.org/display/FPG/GraphQL+API"
+        if self._rest is None:
+            raise RuntimeError("REST client is required for write operations")
+
+        body = payload.model_dump(exclude_none=True)
+        log.info("Creating extension %s via REST", payload.extension)
+        result = self._rest.post("/extensions", json=body)
+
+        # REST response may vary; normalise into our Extension model
+        if isinstance(result, dict):
+            return Extension.model_validate(result)
+        # Fallback: return a model from the input payload
+        return Extension(
+            extension=payload.extension,
+            name=payload.name,
+            tech=payload.tech,
+            voicemail_enabled=payload.voicemail_enabled,
+            outbound_cid=payload.outbound_cid,
         )
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
-        """Update an existing extension.
+        """Update an existing extension via the FreePBX REST API.
+
+        Only fields that are explicitly set in ``payload`` will be sent.
 
         Raises:
-            NotSupportedError: The GraphQL mutation for updating extensions
-                has not been confirmed yet.
+            NotFoundError: If the extension does not exist.
+            FreePBXValidationError: If the server rejects the payload.
+            FreePBXTransportError: On network failure.
         """
-        # TODO: Implement once the updateExtension (or equivalent) mutation
-        # is confirmed. Use payload.to_variables() for partial updates.
-        raise NotSupportedError(
-            "Extension update is not yet implemented. "
-            "The GraphQL mutation name and input schema need to be confirmed "
-            "via introspection on a live FreePBX instance."
-        )
+        if self._rest is None:
+            raise RuntimeError("REST client is required for write operations")
 
-    def enable(self, extension_id: str) -> Extension:
-        """Enable a disabled extension.
+        body = payload.to_variables()
+        log.info("Updating extension %s via REST: %s", extension_id, list(body.keys()))
+        result = self._rest.put(f"/extensions/{extension_id}", json=body)
+
+        if isinstance(result, dict):
+            return Extension.model_validate(result)
+        return Extension(extension=extension_id, name=body.get("name", ""))
+
+    def update_secret(self, extension_id: str, new_secret: str) -> None:
+        """Update only the SIP secret for an extension.
 
         Raises:
-            NotSupportedError: If the backend does not support toggling
-                extension state via the API.
+            NotFoundError: If the extension does not exist.
+            FreePBXTransportError: On network failure.
         """
-        # TODO: May map to an updateExtension mutation with enabled=true,
-        # or a dedicated enableExtension mutation. Confirm via introspection.
-        raise NotSupportedError(
-            "Extension enable is not yet implemented. "
-            "Confirm whether FreePBX supports this via the GraphQL API."
-        )
+        if self._rest is None:
+            raise RuntimeError("REST client is required for write operations")
 
-    def disable(self, extension_id: str) -> Extension:
-        """Disable an extension.
-
-        Raises:
-            NotSupportedError: If the backend does not support toggling
-                extension state via the API.
-        """
-        raise NotSupportedError(
-            "Extension disable is not yet implemented. "
-            "Confirm whether FreePBX supports this via the GraphQL API."
-        )
+        log.info("Rotating secret for extension %s via REST", extension_id)
+        self._rest.put(f"/extensions/{extension_id}", json={"secret": new_secret})

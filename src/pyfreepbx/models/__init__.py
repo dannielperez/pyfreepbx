@@ -2,6 +2,7 @@
 
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.extension import Extension, ExtensionType
+from pyfreepbx.models.firewall import FirewallNetwork
 from pyfreepbx.models.health import (
     EndpointSummary,
     HealthCheck,
@@ -18,6 +19,7 @@ __all__ = [
     "EndpointSummary",
     "Extension",
     "ExtensionType",
+    "FirewallNetwork",
     "HealthCheck",
     "HealthStatus",
     "HealthSummary",

@@ -23,8 +23,8 @@ class ExtensionUpdate(BaseModel):
     voicemail_enabled: bool | None = None
     outbound_cid: str | None = None
     enabled: bool | None = None
-    # TODO: Confirm which fields are mutable via the updateExtension
-    # mutation. Some fields may be immutable after creation.
+    secret: str | None = Field(default=None, min_length=8, max_length=64)
+    email: str | None = Field(default=None, max_length=200)
 
     def to_variables(self) -> dict[str, object]:
         """Return only the fields that were explicitly set (non-None)."""

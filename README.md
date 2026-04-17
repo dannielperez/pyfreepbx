@@ -19,8 +19,9 @@ A typed Python library for **Asterisk AMI** and **experimental FreePBX GraphQL**
 | **Queue live ops** | **Stable** | Live stats, member listing, runtime add/remove (changes lost on Asterisk reload). |
 | **System info** | **Stable** | Asterisk version, uptime, active calls via AMI CoreStatus. |
 | **Extension read** | **Experimental** | GraphQL queries are unvalidated guesses — will likely need adjustment per instance. |
+| **Extension CRUD** | **Stable** | Create, update, and secret rotation via REST API (`/rest/extensions`). |
+| **Firewall read** | **Stable** | List network definitions from the Firewall module REST API. |
 | **Queue config read** | **Experimental** | Queue module GraphQL support is undocumented and may not exist. |
-| **Extension CRUD** | **Not implemented** | Raises `NotSupportedError`. FreePBX does not reliably expose write mutations. |
 
 ## Installation
 

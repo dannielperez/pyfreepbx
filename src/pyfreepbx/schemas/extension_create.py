@@ -35,5 +35,14 @@ class ExtensionCreate(BaseModel):
         default=None,
         description="Outbound caller ID override",
     )
-    # TODO: Add fields as discovered from introspecting the addExtension
-    # mutation input type. Common ones: secret, ring_time, call_group.
+    secret: str | None = Field(
+        default=None,
+        min_length=8,
+        max_length=64,
+        description="SIP secret (password). Generated server-side if omitted.",
+    )
+    email: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Email address for the extension user",
+    )

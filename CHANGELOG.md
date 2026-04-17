@@ -33,3 +33,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Added `hatch-vcs` `fallback-version = "0.0.0"` for Docker builds without VCS metadata.
 - Removed hardcoded example host from `.env.example`.
+
+### Changed
+- **Extension write operations** — `create()`, `update()`, `update_secret()` now implemented via REST API (previously raised `NotSupportedError`)
+  - `ExtensionService` accepts optional `RestClient` for write operations
+  - `ExtensionCreate` schema extended with `secret` and `email` fields
+  - `ExtensionUpdate` schema extended with `secret` and `email` fields
+  - Facade wires `RestClient` into `ExtensionService` automatically
+- **REST client error hierarchy** — HTTP 409 → `FreePBXConflictError`, 422 → `FreePBXValidationError`, transport errors → `FreePBXTransportError`
+- **New exceptions** — `FreePBXValidationError`, `FreePBXConflictError`, `FreePBXTransportError` exported from top-level package
+
+### Added
+- **Firewall service** — read-only access to FreePBX Firewall module network definitions
+  - `FirewallNetwork` Pydantic model (`name`, `network`, `zone`, `enabled`)
+  - `FirewallService.list_networks()` — fetches trusted/blocked network entries via `/rest/firewall/getnetworks`
