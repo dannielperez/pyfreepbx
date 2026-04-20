@@ -9,6 +9,7 @@ import pytest
 from pyfreepbx import FreePBX
 from pyfreepbx.exceptions import ConfigError
 from pyfreepbx.services.extensions import ExtensionService
+from pyfreepbx.services.diagnostics import DiagnosticsService
 from pyfreepbx.services.health import HealthService
 from pyfreepbx.services.queues import QueueService
 from pyfreepbx.services.system import SystemService
@@ -22,6 +23,7 @@ class TestFreePBXFacade:
         assert isinstance(pbx.queues, QueueService)
         assert isinstance(pbx.system, SystemService)
         assert isinstance(pbx.health, HealthService)
+        assert isinstance(pbx.diagnostics, DiagnosticsService)
         pbx.close()
 
     def test_construction_with_ami(self) -> None:

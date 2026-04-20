@@ -1,25 +1,36 @@
-"""Firewall models.
+"""Firewall network definition models.
 
-Represents network definitions from the FreePBX Firewall module's
-REST API (``/rest/firewall/...``). These are the trusted/blocked
-network entries technicians manage through the Firewall module.
+Represents trusted/local/other network entries in the FreePBX
+Responsive Firewall module.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel
+from enum import Enum
+
+from pydantic import BaseModel, Field
+
+
+class FirewallZone(str, Enum):
+    """FreePBX firewall zones."""
+
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+    OTHER = "other"
+    TRUSTED = "trusted"
+    LOCAL = "local"
 
 
 class FirewallNetwork(BaseModel):
-    """A network definition from the FreePBX Firewall module.
+    """A firewall network definition from FreePBX.
 
-    Provisioned via the Firewall module's REST API.
-    Field names follow the FreePBX Firewall REST interface.
+    Returned from ``pbx.firewall.list_networks()`` and
+    ``pbx.firewall.get_network()``.
     """
 
-    name: str
-    network: str                # CIDR notation, e.g. "10.0.0.0/24"
-    zone: str = "trusted"       # internal, external, trusted, local, other
+    network: str = Field(description="CIDR notation, e.g. '10.0.0.0/24' or '1.2.3.4/32'.")
+    name: str = Field(default="", description="Human-readable label for this entry.")
+    zone: FirewallZone = Field(default=FirewallZone.TRUSTED)
     enabled: bool = True
 
     model_config = {"extra": "allow"}

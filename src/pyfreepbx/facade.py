@@ -34,6 +34,7 @@ from pyfreepbx.models.health import StatusResult
 from pyfreepbx.services.extensions import ExtensionService
 from pyfreepbx.services.firewall import FirewallService
 from pyfreepbx.services.health import HealthService
+from pyfreepbx.services.diagnostics import DiagnosticsService
 from pyfreepbx.services.queues import QueueService
 from pyfreepbx.services.system import SystemService
 
@@ -107,7 +108,8 @@ class FreePBX:
         self._queues = QueueService(self._client, self._ami_client)
         self._system = SystemService(self._client, self._ami_client)
         self._health = HealthService(self._client, self._ami_client)
-        self._firewall = FirewallService(self._rest_client)
+        self._firewall = FirewallService(self._client)
+        self._diagnostics = DiagnosticsService(self._rest_client, self._ami_client)
 
         log.debug("FreePBX facade initialized for %s", host)
 
@@ -284,6 +286,10 @@ class FreePBX:
     @property
     def firewall(self) -> FirewallService:
         return self._firewall
+
+    @property
+    def diagnostics(self) -> DiagnosticsService:
+        return self._diagnostics
 
     @property
     def rest(self) -> RestClient:
