@@ -73,6 +73,79 @@ query {
 # TODO: addExtension / updateExtension mutations — confirm names and
 # input types via introspection before implementing.
 
+# ---------------------------------------------------------------------------
+# Firewall queries / mutations (provisional)
+# ---------------------------------------------------------------------------
+
+FETCH_ALL_NETWORKS = """\
+query {
+    fetchAllFirewallNetworks {
+        status
+        message
+        networks {
+            network
+            name
+            zone
+            enabled
+        }
+    }
+}
+"""
+
+FETCH_NETWORK = """\
+query FetchNetwork($network: String!) {
+    fetchFirewallNetwork(network: $network) {
+        status
+        message
+        network {
+            network
+            name
+            zone
+            enabled
+        }
+    }
+}
+"""
+
+CREATE_NETWORK = """\
+mutation CreateNetwork($input: FirewallNetworkInput!) {
+    addFirewallNetwork(input: $input) {
+        status
+        message
+        network {
+            network
+            name
+            zone
+            enabled
+        }
+    }
+}
+"""
+
+UPDATE_NETWORK = """\
+mutation UpdateNetwork($network: String!, $input: FirewallNetworkInput!) {
+    updateFirewallNetwork(network: $network, input: $input) {
+        status
+        message
+        network {
+            network
+            name
+            zone
+            enabled
+        }
+    }
+}
+"""
+
+DELETE_NETWORK = """\
+mutation DeleteNetwork($network: String!) {
+    removeFirewallNetwork(network: $network) {
+        status
+        message
+    }
+}
+"""
+
 
 class FreePBXClient:
     """Domain-aware HTTP client for FreePBX.
@@ -164,6 +237,59 @@ class FreePBXClient:
         raw = result.get("queues", [])
         log.debug("Fetched %d raw queues", len(raw))
         return raw
+
+    # ------------------------------------------------------------------
+    # Firewall
+    # ------------------------------------------------------------------
+
+    def fetch_all_networks(self) -> list[dict[str, Any]]:
+        """Fetch all firewall network definitions.
+
+        .. warning:: **Experimental** — provisional GraphQL query.
+        """
+        data = self._gql.query(FETCH_ALL_NETWORKS)
+        result = data.get("fetchAllFirewallNetworks", {})
+        raw = result.get("networks", [])
+        log.debug("Fetched %d firewall networks", len(raw))
+        return raw
+
+    def fetch_network(self, network_cidr: str) -> dict[str, Any] | None:
+        """Fetch a single firewall network by CIDR."""
+        data = self._gql.query(
+            FETCH_NETWORK,
+            variables={"network": network_cidr},
+        )
+        result = data.get("fetchFirewallNetwork", {})
+        return result.get("network")
+
+    def create_network(self, variables: dict[str, Any]) -> dict[str, Any]:
+        """Create a firewall network definition on the PBX."""
+        data = self._gql.query(
+            CREATE_NETWORK,
+            variables={"input": variables},
+        )
+        result = data.get("addFirewallNetwork", {})
+        return result.get("network", {})
+
+    def update_network(
+        self, network_cidr: str, variables: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update a firewall network definition on the PBX."""
+        data = self._gql.query(
+            UPDATE_NETWORK,
+            variables={"network": network_cidr, "input": variables},
+        )
+        result = data.get("updateFirewallNetwork", {})
+        return result.get("network", {})
+
+    def delete_network(self, network_cidr: str) -> bool:
+        """Delete a firewall network definition from the PBX."""
+        data = self._gql.query(
+            DELETE_NETWORK,
+            variables={"network": network_cidr},
+        )
+        result = data.get("removeFirewallNetwork", {})
+        return result.get("status") == "true"
 
     # ------------------------------------------------------------------
     # Lifecycle
