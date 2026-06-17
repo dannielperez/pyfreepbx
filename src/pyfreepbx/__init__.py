@@ -1,6 +1,7 @@
 """pyfreepbx — Python library for FreePBX and Asterisk management."""
 
 from pyfreepbx._version import __version__
+from pyfreepbx.clients.ami_listener import AMIEventListener
 from pyfreepbx.exceptions import (
     AMIAuthError,
     AMIConnectionError,
@@ -16,12 +17,15 @@ from pyfreepbx.exceptions import (
     NotSupportedError,
 )
 from pyfreepbx.facade import FreePBX
+from pyfreepbx.models.events import AMIEvent
 from pyfreepbx.models.health import StatusResult
 
 __all__ = [
     "AMIAuthError",
     "AMIConnectionError",
     "AMIError",
+    "AMIEvent",
+    "AMIEventListener",
     "AuthenticationError",
     "ConfigError",
     "FreePBX",
