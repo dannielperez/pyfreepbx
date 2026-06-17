@@ -465,6 +465,18 @@ class AMIClient(BaseClient):
         line, self._buffer = self._buffer.split(_CRLF, 1)
         return line
 
+    def read_event(self) -> dict[str, str]:
+        """Block until one AMI frame arrives and return it as a ``{header: value}`` dict.
+
+        Public wrapper over the response reader, used by the event listener to
+        consume the continuous event stream (after ``Events: on``). Reuses the
+        same CRLF framing and buffering as request/response exchanges.
+
+        Raises:
+            AMIConnectionError: If the connection is closed by the remote host.
+        """
+        return self._read_response()
+
     def _read_response(self) -> dict[str, str]:
         """Read a complete AMI response block (terminated by blank line)."""
         while _END not in self._buffer:
