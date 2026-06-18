@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from pyfreepbx.clients.ami import AMIClient
 from pyfreepbx.clients.ami_parser import parse_event
-from pyfreepbx.exceptions import AMIConnectionError, AMIError
+from pyfreepbx.exceptions import AMIConnectionError, AMIError, AMITimeout
 from pyfreepbx.logging import get_logger
 
 if TYPE_CHECKING:
@@ -34,6 +34,22 @@ if TYPE_CHECKING:
     from pyfreepbx.models.events import AMIEvent
 
 log = get_logger("clients.ami_listener")
+
+
+class _IdleTick:
+    """Transport-only sentinel: one read window elapsed, socket alive, no frame.
+
+    NOT an :class:`~pyfreepbx.models.events.AMIEvent` — a liveness signal only,
+    yielded by :meth:`AMIEventListener.iter_raw`/:meth:`listen` on an idle read
+    timeout. Compared by identity (``is AMI_IDLE``); never parsed or delivered as
+    an event.
+    """
+
+    __slots__ = ()
+
+
+AMI_IDLE = _IdleTick()
+
 
 # High-volume / low-signal events dropped by the optional noise filter. A busy
 # PBX emits ~10x more of these than call-signalling events (capture 2026-06-17).
@@ -69,6 +85,8 @@ class AMIEventListener:
 
         listener.start()
         for event in listener.listen():
+            if event is AMI_IDLE:      # transport liveness tick, not an event
+                continue
             handle(event)
     """
 
@@ -124,26 +142,37 @@ class AMIEventListener:
     # Streaming
     # ------------------------------------------------------------------
 
-    def iter_raw(self) -> Iterator[dict[str, str]]:
+    def iter_raw(self) -> Iterator[dict[str, str] | _IdleTick]:
         """Yield raw AMI event frames for one connection.
 
         Skips frames with no ``Event`` header (action/command responses such as
         the login ack) and — when ``filter_noise`` is set — the high-volume
         non-signalling events. Raises :class:`AMIConnectionError` when the
         connection drops (the caller decides whether to reconnect).
+
+        On an idle read timeout (:class:`AMITimeout`) yields the ``AMI_IDLE``
+        sentinel instead of a frame — a liveness tick, never call data.
         """
         while not self._closed:
-            frame = self._client.read_event()
+            try:
+                frame = self._client.read_event()
+            except AMITimeout:
+                yield AMI_IDLE
+                continue
             if "Event" not in frame:
                 continue
             if self._filter_noise and frame.get("Event") in _NOISE_EVENTS:
                 continue
             yield frame
 
-    def listen(self) -> Iterator[AMIEvent]:
-        """Yield typed events for one connection (call :meth:`start` first)."""
-        for frame in self.iter_raw():
-            yield parse_event(frame, self._clock())
+    def listen(self) -> Iterator[AMIEvent | _IdleTick]:
+        """Yield typed events for one connection (call :meth:`start` first).
+
+        Passes the ``AMI_IDLE`` transport sentinel through untouched; only real
+        frames are parsed into events. Consumers must filter ``AMI_IDLE``.
+        """
+        for item in self.iter_raw():
+            yield item if isinstance(item, _IdleTick) else parse_event(item, self._clock())
 
     def run_forever(
         self,
@@ -164,6 +193,8 @@ class AMIEventListener:
                 self.start()
                 backoff = base_backoff
                 for event in self.listen():
+                    if isinstance(event, _IdleTick):
+                        continue  # transport liveness tick — never an event
                     on_event(event)
             except (AMIConnectionError, OSError) as exc:
                 if self._closed:
@@ -185,4 +216,4 @@ class AMIEventListener:
                     self._client.disconnect()
 
 
-__all__ = ["AMIEventListener"]
+__all__ = ["AMI_IDLE", "AMIEventListener"]
