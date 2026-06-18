@@ -38,7 +38,7 @@ from typing import Any
 
 from pyfreepbx.clients.base import BaseClient
 from pyfreepbx.config import AMIConfig
-from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError
+from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError, AMITimeout
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.call import OriginateResult
 from pyfreepbx.models.device import Device, DeviceState
@@ -556,8 +556,20 @@ class AMIClient(BaseClient):
 
         Raises:
             AMIConnectionError: If the connection is closed by the remote host.
+            AMITimeout: If no frame arrives within the socket read timeout while
+                the connection is alive (``errno is None``). Timeouts that carry
+                an errno (e.g. ETIMEDOUT) re-raise unchanged as real failures.
         """
-        return self._read_response()
+        try:
+            return self._read_response()
+        except TimeoutError as exc:
+            # A pure socket read timeout (settimeout expiry) has no errno and is
+            # an *idle* signal, not a disconnect. An errno-bearing TimeoutError
+            # (e.g. ETIMEDOUT) is a real failure — re-raise it unchanged.
+            if exc.errno is None:
+                msg = "AMI idle: no event within read timeout"
+                raise AMITimeout(msg) from exc
+            raise
 
     def _read_response(self) -> dict[str, str]:
         """Read a complete AMI response block (terminated by blank line)."""
