@@ -1,6 +1,7 @@
 """Pydantic models for pyfreepbx."""
 
 from pyfreepbx.models.asterisk import AsteriskSummary
+from pyfreepbx.models.call import OriginateResult
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.extension import Extension, ExtensionType
@@ -20,8 +21,8 @@ __all__ = [
     "AsteriskLogLine",
     "AsteriskLogResult",
     "AsteriskSummary",
-    "CallDetailRecord",
     "CDRListResult",
+    "CallDetailRecord",
     "Device",
     "DeviceState",
     "EndpointSummary",
@@ -32,6 +33,7 @@ __all__ = [
     "HealthCheck",
     "HealthStatus",
     "HealthSummary",
+    "OriginateResult",
     "Queue",
     "QueueMember",
     "QueueStats",
