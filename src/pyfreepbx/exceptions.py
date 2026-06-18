@@ -31,6 +31,16 @@ class AMIConnectionError(AMIError):
     """Failed to connect to AMI."""
 
 
+class AMITimeout(AMIError):  # noqa: N818 — mirrors builtin TimeoutError; cross-repo contract name
+    """Idle read timeout: no frame within the read window, socket still alive.
+
+    A non-failure transport signal — the event reader converts it to the
+    ``AMI_IDLE`` sentinel; it is never a disconnect. Subclasses :class:`AMIError`
+    so a legacy broad ``except AMIError`` cannot crash on it, but it is always
+    caught more-specifically first.
+    """
+
+
 class AMIAuthError(AMIError, AuthenticationError):
     """AMI authentication failed."""
 
