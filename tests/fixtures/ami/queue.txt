@@ -1,0 +1,2475 @@
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 1
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 2
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+
+Event: QueueCallerJoin
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+Queue: 88
+Position: 1
+Count: 1
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704153.3807873
+Linkedid: 1781704152.3807872
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 88
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704153.3807873
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+
+Event: AgentCalled
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc3;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807873
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7008@from-queue/n
+MemberName: Ext 7008
+
+Event: DialBegin
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc3;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 7008
+DestPriority: 1
+DestUniqueid: 1781704153.3807873
+DestLinkedid: 1781704152.3807872
+DialString: Local/7008@from-queue/n
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 88
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+
+Event: AgentCalled
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7006@from-queue/n
+MemberName: Ext 7006
+
+Event: DialBegin
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 7006
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+DialString: Local/7006@from-queue/n
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: followme-sub
+Exten: 7008
+Priority: 4
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: Ext 7008
+Language: en
+AccountCode: 
+Context: followme-sub
+Exten: 7008
+Priority: 6
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: Ext 88
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 47
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 48
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/7006-001600e8
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: s
+Priority: 1
+Uniqueid: 1781704153.3807877
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: PJSIP/7006-001600e8
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807877
+Linkedid: 1781704152.3807872
+
+Event: DialBegin
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+DestChannel: PJSIP/7006-001600e8
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: func-apply-sipheaders
+DestExten: s
+DestPriority: 11
+DestUniqueid: 1781704153.3807877
+DestLinkedid: 1781704152.3807872
+DialString: 7006/sip:7006@203.0.113.13:5060
+
+Event: Newstate
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+
+Event: DialState
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+DialStatus: RINGING
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/7006-001600e8
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807877
+Linkedid: 1781704152.3807872
+
+Event: DialState
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+DialStatus: RINGING
+
+Event: DialState
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+DestChannel: PJSIP/7006-001600e8
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 7006
+DestPriority: 1
+DestUniqueid: 1781704153.3807877
+DestLinkedid: 1781704152.3807872
+DialStatus: RINGING
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: Ext 7008
+Language: en
+AccountCode: 
+Context: followme-check
+Exten: 7008
+Priority: 3
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: HangupRequest
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807873
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: Ext 7008
+Language: en
+AccountCode: 
+Context: followme-check
+Exten: 7008
+Priority: 3
+Uniqueid: 1781704153.3807874
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc3;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 7008
+DestCallerIDName: Ext 7008
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807873
+DestLinkedid: 1781704152.3807872
+DialStatus: NOANSWER
+
+Event: AgentRingNoAnswer
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc3;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 7008
+DestCallerIDName: Ext 7008
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807873
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7008@from-queue/n
+MemberName: Ext 7008
+RingTime: 0
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807873
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807873
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc3;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807873
+Linkedid: 1781704152.3807872
+
+Event: AgentRingNoAnswer
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7006@from-queue/n
+MemberName: Ext 7006
+RingTime: 15000
+
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+DialStatus: NOANSWER
+
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc4;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704153.3807875
+DestLinkedid: 1781704152.3807872
+DialStatus: CANCEL
+
+Event: HangupRequest
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+Cause: 0
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+Cause: 0
+Cause-txt: Unknown
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704153.3807875
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: DialEnd
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+DestChannel: PJSIP/7006-001600e8
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 7006
+DestPriority: 1
+DestUniqueid: 1781704153.3807877
+DestLinkedid: 1781704152.3807872
+DialStatus: CANCEL
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: ext-local
+Exten: 7006
+Priority: 3
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/7006-001600e8
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704153.3807877
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc4;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: ext-local
+Exten: h
+Priority: 1
+Uniqueid: 1781704153.3807876
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704173.3807880
+Linkedid: 1781704152.3807872
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 88
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704173.3807880
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7008
+Priority: 1
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+
+Event: AgentCalled
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc5;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807880
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7008@from-queue/n
+MemberName: Ext 7008
+
+Event: DialBegin
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc5;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 7008
+DestPriority: 1
+DestUniqueid: 1781704173.3807880
+DestLinkedid: 1781704152.3807872
+DialString: Local/7008@from-queue/n
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+
+Event: Newchannel
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: <unknown>
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 88
+CallerIDName: <unknown>
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: AgentCalled
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7006@from-queue/n
+MemberName: Ext 7006
+
+Event: DialBegin
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 88
+DestCallerIDName: <unknown>
+DestConnectedLineNum: <unknown>
+DestConnectedLineName: <unknown>
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 7006
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+DialString: Local/7006@from-queue/n
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: followme-sub
+Exten: 7008
+Priority: 4
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: Ext 7008
+Language: en
+AccountCode: 
+Context: followme-sub
+Exten: 7008
+Priority: 6
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 88
+ConnectedLineName: Ext 88
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 47
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 48
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/7006-001600eb
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: s
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: PJSIP/7006-001600eb
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+
+Event: DialBegin
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+DestChannel: PJSIP/7006-001600eb
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: func-apply-sipheaders
+DestExten: s
+DestPriority: 11
+DestUniqueid: 1781704173.3807884
+DestLinkedid: 1781704152.3807872
+DialString: 7006/sip:7006@203.0.113.13:5060
+
+Event: Newstate
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: DialState
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+DialStatus: RINGING
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/7006-001600eb
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+
+Event: DialState
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+DestChannel: PJSIP/7006-001600eb
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-internal
+DestExten: 7006
+DestPriority: 1
+DestUniqueid: 1781704173.3807884
+DestLinkedid: 1781704152.3807872
+DialStatus: RINGING
+
+Event: DialState
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+DialStatus: RINGING
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: Ext 7008
+Language: en
+AccountCode: 
+Context: followme-check
+Exten: 7008
+Priority: 3
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: HangupRequest
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807880
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7008
+ConnectedLineName: Ext 7008
+Language: en
+AccountCode: 
+Context: followme-check
+Exten: 7008
+Priority: 3
+Uniqueid: 1781704173.3807881
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc5;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 7008
+DestCallerIDName: Ext 7008
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807880
+DestLinkedid: 1781704152.3807872
+DialStatus: NOANSWER
+
+Event: AgentRingNoAnswer
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7008@from-queue-00120cc5;1
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 7008
+DestCallerIDName: Ext 7008
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807880
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7008@from-queue/n
+MemberName: Ext 7008
+RingTime: 0
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807880
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807880
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: Local/7008@from-queue-00120cc5;1
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 7008
+CallerIDName: Ext 7008
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807880
+Linkedid: 1781704152.3807872
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/7006-001600eb
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 7006
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+
+Event: DialEnd
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 4
+ChannelStateDesc: Ring
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+DestChannel: PJSIP/7006-001600eb
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: macro-dial-one
+DestExten: s
+DestPriority: 1
+DestUniqueid: 1781704173.3807884
+DestLinkedid: 1781704152.3807872
+DialStatus: ANSWER
+
+Event: Newstate
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+
+Event: NewCallerid
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+CID-CallingPres: 0 (Presentation Allowed, Not Screened)
+
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+DialStatus: ANSWER
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+
+Event: QueueCallerLeave
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+Queue: 88
+Position: 1
+Count: 0
+
+Event: AgentConnect
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7006@from-queue/n
+MemberName: Ext 7006
+HoldTime: 28
+RingTime: 7
+
+Event: Newstate
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 3e07deb1-f017-4960-8896-f53e8fb25a37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: PJSIP/7006-001600eb
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 3e07deb1-f017-4960-8896-f53e8fb25a37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 9aea125c-726b-496e-b610-2acfe8457619
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 9aea125c-726b-496e-b610-2acfe8457619
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+
+Event: HangupRequest
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: AgentComplete
+Privilege: agent,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+DestChannel: Local/7006@from-queue-00120cc6;1
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 7006
+DestCallerIDName: Ext 7006
+DestConnectedLineNum: 7007
+DestConnectedLineName: Ext 7007
+DestLanguage: en
+DestAccountCode: 
+DestContext: from-queue
+DestExten: 88
+DestPriority: 1
+DestUniqueid: 1781704173.3807882
+DestLinkedid: 1781704152.3807872
+Queue: 88
+Interface: Local/7006@from-queue/n
+MemberName: Ext 7006
+HoldTime: 28
+TalkTime: 12
+Reason: caller
+
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 9aea125c-726b-496e-b610-2acfe8457619
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: 88
+Priority: 51
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 9aea125c-726b-496e-b610-2acfe8457619
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+
+Event: HangupRequest
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;1
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: from-queue
+Exten: 88
+Priority: 1
+Uniqueid: 1781704173.3807882
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 3e07deb1-f017-4960-8896-f53e8fb25a37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 56
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: ext-local
+Exten: 7006
+Priority: 3
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+Cause: 16
+
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 3e07deb1-f017-4960-8896-f53e8fb25a37
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: PJSIP/7006-001600eb
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/7006-001600eb
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7006
+CallerIDName: Ext 7006
+ConnectedLineNum: 7007
+ConnectedLineName: Ext 7007
+Language: en
+AccountCode: 
+Context: macro-dial-one
+Exten: s
+Priority: 1
+Uniqueid: 1781704173.3807884
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/7007-001600e7
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: from-internal
+Exten: h
+Priority: 1
+Uniqueid: 1781704152.3807872
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Hangup
+Privilege: call,all
+Channel: Local/7006@from-queue-00120cc6;2
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 7007
+CallerIDName: Ext 7007
+ConnectedLineNum: 7006
+ConnectedLineName: Ext 7006
+Language: en
+AccountCode: 
+Context: ext-local
+Exten: h
+Priority: 1
+Uniqueid: 1781704173.3807883
+Linkedid: 1781704152.3807872
+Cause: 16
+Cause-txt: Normal Clearing
+

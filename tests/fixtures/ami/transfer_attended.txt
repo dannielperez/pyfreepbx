@@ -1,0 +1,63 @@
+Event: AttendedTransfer
+Privilege: call,all
+Result: Success
+OrigTransfererChannel: PJSIP/7002-00000abc
+OrigTransfererChannelState: 6
+OrigTransfererChannelStateDesc: Up
+OrigTransfererCallerIDNum: 7002
+OrigTransfererCallerIDName: Ext 7002
+OrigTransfererConnectedLineNum: 7001
+OrigTransfererConnectedLineName: Ext 7001
+OrigTransfererLanguage: en
+OrigTransfererAccountCode: 
+OrigTransfererContext: from-internal
+OrigTransfererExten: 88
+OrigTransfererPriority: 1
+OrigTransfererUniqueid: 1781700000.100
+OrigTransfererLinkedid: 1781700000.99
+SecondTransfererChannel: PJSIP/7002-00000def
+SecondTransfererChannelState: 6
+SecondTransfererChannelStateDesc: Up
+SecondTransfererCallerIDNum: 7002
+SecondTransfererCallerIDName: Ext 7002
+SecondTransfererConnectedLineNum: 7003
+SecondTransfererConnectedLineName: Ext 7003
+SecondTransfererLanguage: en
+SecondTransfererAccountCode: 
+SecondTransfererContext: from-internal
+SecondTransfererExten: 7003
+SecondTransfererPriority: 1
+SecondTransfererUniqueid: 1781700000.101
+SecondTransfererLinkedid: 1781700000.101
+DestType: Bridge
+DestBridgeUniqueid: 7f3a1c20-0000-4000-8000-0000000000ab
+DestApp: 
+TransfereeChannel: PJSIP/7001-00000aaa
+TransfereeChannelState: 6
+TransfereeChannelStateDesc: Up
+TransfereeCallerIDNum: 7001
+TransfereeCallerIDName: Ext 7001
+TransfereeConnectedLineNum: 7002
+TransfereeConnectedLineName: Ext 7002
+TransfereeLanguage: en
+TransfereeAccountCode: 
+TransfereeContext: from-internal
+TransfereeExten: 88
+TransfereePriority: 1
+TransfereeUniqueid: 1781700000.99
+TransfereeLinkedid: 1781700000.99
+TransferTargetChannel: PJSIP/7003-00000bbb
+TransferTargetChannelState: 6
+TransferTargetChannelStateDesc: Up
+TransferTargetCallerIDNum: 7003
+TransferTargetCallerIDName: Ext 7003
+TransferTargetConnectedLineNum: 7002
+TransferTargetConnectedLineName: Ext 7002
+TransferTargetLanguage: en
+TransferTargetAccountCode: 
+TransferTargetContext: from-internal
+TransferTargetExten: 
+TransferTargetPriority: 1
+TransferTargetUniqueid: 1781700000.102
+TransferTargetLinkedid: 1781700000.101
+
