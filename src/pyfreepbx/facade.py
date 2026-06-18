@@ -21,6 +21,7 @@ Usage:
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from pyfreepbx.clients.ami import AMIClient
@@ -31,12 +32,15 @@ from pyfreepbx.config import AMIConfig, FreePBXConfig
 from pyfreepbx.exceptions import ConfigError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.health import StatusResult
+from pyfreepbx.services.diagnostics import DiagnosticsService
 from pyfreepbx.services.extensions import ExtensionService
 from pyfreepbx.services.firewall import FirewallService
 from pyfreepbx.services.health import HealthService
-from pyfreepbx.services.diagnostics import DiagnosticsService
 from pyfreepbx.services.queues import QueueService
 from pyfreepbx.services.system import SystemService
+
+if TYPE_CHECKING:
+    from pyfreepbx.models.call import OriginateResult
 
 log = get_logger("facade")
 
@@ -316,6 +320,22 @@ class FreePBX:
         self._ami_client.connect()
         self._ami_client.login()
         log.info("AMI connected: %s", self._ami_client.banner)
+
+    def originate(self, **kwargs: object) -> OriginateResult:
+        """Place a call via AMI ``Originate`` (lazy-connects AMI if needed).
+
+        Thin delegation to :meth:`AMIClient.originate`; see that method for the
+        keyword contract. Originate is a privileged write — callers are expected
+        to own the policy envelope (permission gate, dry-run, audit, breaker).
+
+        Raises:
+            ConfigError: If AMI credentials were not provided.
+        """
+        if self._ami_client is None:
+            raise ConfigError("AMI is not configured. Provide ami_username and ami_secret.")
+        if not self._ami_client.authenticated:
+            self.connect_ami()
+        return self._ami_client.originate(**kwargs)  # type: ignore[arg-type]
 
     # ------------------------------------------------------------------
     # Combined queries

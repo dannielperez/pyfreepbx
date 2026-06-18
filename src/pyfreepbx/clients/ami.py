@@ -33,12 +33,14 @@ Actions that should remain in *service* layer logic (not raw client):
 from __future__ import annotations
 
 import socket
+import uuid
 from typing import Any
 
 from pyfreepbx.clients.base import BaseClient
 from pyfreepbx.config import AMIConfig
 from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.call import OriginateResult
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.queue import QueueStats
 from pyfreepbx.models.system import SystemInfo
@@ -421,6 +423,86 @@ class AMIClient(BaseClient):
         if action not in _SAFE_ACTIONS:
             log.warning("Running non-allowlisted AMI action: %s", action)
         return self._collect_events(action, **params)
+
+    # ------------------------------------------------------------------
+    # Call control (write actions — service-layer use only)
+    # ------------------------------------------------------------------
+
+    def originate(
+        self,
+        *,
+        channel: str,
+        extension: str,
+        context: str = "from-internal",
+        priority: int = 1,
+        caller_id: str = "",
+        timeout_ms: int = 30000,
+        action_id: str = "",
+        variables: dict[str, str] | None = None,
+    ) -> OriginateResult:
+        """Place a call via the AMI ``Originate`` action.
+
+        ``Originate`` is a privileged *write* action (it makes the PBX place a
+        real call) and is deliberately **not** in :data:`_SAFE_ACTIONS`. It is
+        exposed as an explicit typed method — never via the generic
+        ``run_action`` escape hatch — so the call contract is reviewable in one
+        place. The UniqueOS service layer owns the policy (permission gate,
+        dry-run, audit, circuit breaker); this method owns only the protocol.
+
+        The action is issued **asynchronously** (``Async: true``) so AMI returns
+        as soon as the call is queued, echoing the ``ActionID`` we supply. That
+        id is returned as :attr:`OriginateResult.action_id` and is the durable
+        call reference / idempotency key. Call progress (Ringing/Answered/
+        Hangup) arrives later as AMI *events* — consuming those is a separate
+        concern (the shared call-event listener), not this method.
+
+        Args:
+            channel: Channel to call first, e.g. ``"Local/2001@from-internal"``.
+            extension: Extension to connect the answered channel to.
+            context: Dialplan context for ``extension``.
+            priority: Dialplan priority for ``extension``.
+            caller_id: Caller ID to present (already redacted/safe to send).
+            timeout_ms: How long to ring before giving up, in milliseconds.
+            action_id: Optional caller-supplied id; one is generated if empty.
+            variables: Optional channel variables (``Variable: k=v``).
+
+        Returns:
+            :class:`OriginateResult` with the (possibly generated) ``action_id``.
+
+        Raises:
+            AMIError: If AMI does not acknowledge the originate with
+                ``Response: Success`` (a structured vendor refusal — distinct
+                from a transport failure, which raises ``AMIConnectionError``).
+        """
+        self._require_auth()
+        aid = action_id or uuid.uuid4().hex
+        params: dict[str, Any] = {
+            "Channel": channel,
+            "Exten": extension,
+            "Context": context,
+            "Priority": priority,
+            "Async": "true",
+            "Timeout": timeout_ms,
+            "ActionID": aid,
+        }
+        if caller_id:
+            params["CallerID"] = caller_id
+        if variables:
+            # AMI accepts comma-joined channel variables in a single header.
+            params["Variable"] = ",".join(f"{k}={v}" for k, v in variables.items())
+
+        response = self._send_action("Originate", **params)
+        if response.get("Response") != "Success":
+            raise AMIError(response.get("Message", "Originate was not accepted"))
+
+        return OriginateResult(
+            action_id=aid,
+            channel=channel,
+            extension=extension,
+            context=context,
+            response=response.get("Response", ""),
+            message=response.get("Message", ""),
+        )
 
     # ------------------------------------------------------------------
     # Protocol I/O (private)
