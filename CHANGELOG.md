@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `AMIEventListener` — synchronous AMI event listener (connect/login, reconnect/backoff, optional noise filter) yielding typed events; reuses the `AMIClient` socket transport. Stateless: no call-session state or ActionID->Uniqueid map (consumer-owned). (OPS-SNAP-3, #494)
+- `pyfreepbx.models.events` — typed AMI event DTOs (Newchannel/Newstate/DialBegin/DialEnd/BridgeEnter/Hangup, Queue* and Agent* queue events, OriginateResponse, Blind/AttendedTransfer, UnknownEvent). `linkedid`-first; never fabricated (e.g. `OriginateResponse` carries no Linkedid).
+- `parse_event()` in `pyfreepbx.clients.ami_parser` — pure AMI frame -> typed DTO parser.
+- `AMIClient.read_event()` — public event-frame read used by the listener.
+- AMI fixture corpus under `tests/fixtures/ami/` (captured + sanitized; blind/attended transfer fixtures are synthetic/spec-derived).
 - `FreePBX` facade with `from_env()` and explicit configuration.
 - `FreePBX.from_url(url, **kwargs)` — construct from a full URL; auto-extracts host, port, api_base_path.
 - `FreePBX.from_dict(config)` — construct from a configuration dictionary; accepts `url` or `host` key.

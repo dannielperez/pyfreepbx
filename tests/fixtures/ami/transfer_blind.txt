@@ -1,0 +1,35 @@
+Event: BlindTransfer
+Privilege: call,all
+Result: Success
+TransfererChannel: PJSIP/7002-00000abc
+TransfererChannelState: 6
+TransfererChannelStateDesc: Up
+TransfererCallerIDNum: 7002
+TransfererCallerIDName: Ext 7002
+TransfererConnectedLineNum: 7001
+TransfererConnectedLineName: Ext 7001
+TransfererLanguage: en
+TransfererAccountCode: 
+TransfererContext: from-internal
+TransfererExten: 7003
+TransfererPriority: 1
+TransfererUniqueid: 1781700000.100
+TransfererLinkedid: 1781700000.99
+TransfereeChannel: PJSIP/7001-00000aaa
+TransfereeChannelState: 6
+TransfereeChannelStateDesc: Up
+TransfereeCallerIDNum: 7001
+TransfereeCallerIDName: Ext 7001
+TransfereeConnectedLineNum: 7002
+TransfereeConnectedLineName: Ext 7002
+TransfereeLanguage: en
+TransfereeAccountCode: 
+TransfereeContext: from-internal
+TransfereeExten: 88
+TransfereePriority: 1
+TransfereeUniqueid: 1781700000.99
+TransfereeLinkedid: 1781700000.99
+IsExternal: No
+Context: from-internal
+Extension: 7003
+
