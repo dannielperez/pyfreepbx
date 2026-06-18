@@ -31,7 +31,7 @@ class AMIConnectionError(AMIError):
     """Failed to connect to AMI."""
 
 
-class AMITimeout(AMIError):
+class AMITimeout(AMIError):  # noqa: N818 — mirrors builtin TimeoutError; cross-repo contract name
     """Idle read timeout: no frame within the read window, socket still alive.
 
     A non-failure transport signal — the event reader converts it to the
