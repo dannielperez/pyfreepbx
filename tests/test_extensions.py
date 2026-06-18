@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from pyfreepbx.exceptions import NotFoundError, NotSupportedError
+from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
 from pyfreepbx.services.extensions import ExtensionService
@@ -51,27 +51,18 @@ class TestExtensionService:
         with pytest.raises(NotFoundError):
             svc.get("9999")
 
-    def test_create_raises_not_supported(self, mock_freepbx_client: MagicMock) -> None:
+    def test_create_requires_rest_client(self, mock_freepbx_client: MagicMock) -> None:
+        # write operations require a REST client; GraphQL-only construction cannot create
         svc = ExtensionService(mock_freepbx_client)
         payload = ExtensionCreate(extension="1050", name="New User")
-        with pytest.raises(NotSupportedError):
+        with pytest.raises(RuntimeError, match="REST client is required"):
             svc.create(payload)
 
-    def test_update_raises_not_supported(self, mock_freepbx_client: MagicMock) -> None:
+    def test_update_requires_rest_client(self, mock_freepbx_client: MagicMock) -> None:
         svc = ExtensionService(mock_freepbx_client)
         payload = ExtensionUpdate(name="Updated Name")
-        with pytest.raises(NotSupportedError):
+        with pytest.raises(RuntimeError, match="REST client is required"):
             svc.update("1001", payload)
-
-    def test_enable_raises_not_supported(self, mock_freepbx_client: MagicMock) -> None:
-        svc = ExtensionService(mock_freepbx_client)
-        with pytest.raises(NotSupportedError):
-            svc.enable("1001")
-
-    def test_disable_raises_not_supported(self, mock_freepbx_client: MagicMock) -> None:
-        svc = ExtensionService(mock_freepbx_client)
-        with pytest.raises(NotSupportedError):
-            svc.disable("1001")
 
 
 class TestExperimentalWarnings:
