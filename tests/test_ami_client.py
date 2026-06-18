@@ -250,6 +250,66 @@ class TestRunAction:
             client.run_action("Ping")
 
 
+class TestOriginate:
+    def test_originate_success_returns_action_id(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = (
+            b"Response: Success\r\nMessage: Originate successfully queued\r\n\r\n"
+        )
+
+        result = client.originate(
+            channel="Local/2001@from-internal",
+            extension="1500",
+            caller_id="Visitor 7",
+            action_id="abc123",
+        )
+
+        assert result.action_id == "abc123"
+        assert result.queued is True
+        assert result.channel == "Local/2001@from-internal"
+
+        sent = mock_sock.sendall.call_args[0][0].decode("utf-8")
+        assert sent.startswith("Action: Originate\r\n")
+        # Issued async so AMI returns immediately with our ActionID (the call_ref).
+        assert "Async: true\r\n" in sent
+        assert "ActionID: abc123\r\n" in sent
+        assert "CallerID: Visitor 7\r\n" in sent
+
+    def test_originate_generates_action_id_when_absent(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Success\r\n\r\n"
+
+        result = client.originate(channel="Local/2001@from-internal", extension="1500")
+        assert result.action_id  # non-empty generated id
+        sent = mock_sock.sendall.call_args[0][0].decode("utf-8")
+        assert f"ActionID: {result.action_id}\r\n" in sent
+
+    def test_originate_encodes_channel_variables(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Success\r\n\r\n"
+
+        client.originate(
+            channel="Local/2001@from-internal",
+            extension="1500",
+            variables={"VISITOR": "7", "GATE": "north"},
+        )
+        sent = mock_sock.sendall.call_args[0][0].decode("utf-8")
+        assert "Variable: VISITOR=7,GATE=north\r\n" in sent
+
+    def test_originate_vendor_refusal_raises_amierror(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = (
+            b"Response: Error\r\nMessage: Extension does not exist\r\n\r\n"
+        )
+
+        with pytest.raises(AMIError, match="Extension does not exist"):
+            client.originate(channel="Local/2001@from-internal", extension="9999")
+
+    def test_originate_requires_auth(self, client: AMIClient) -> None:
+        with pytest.raises(AMIError, match="Not connected"):
+            client.originate(channel="Local/2001@from-internal", extension="1500")
+
+
 class TestStateHelpers:
     def test_parse_device_state(self) -> None:
         assert _parse_device_state("Not in use") == DeviceState.REGISTERED
