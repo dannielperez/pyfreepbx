@@ -1,4 +1,4 @@
-"""Tests for the synchronous AMI event listener (OPS-SNAP-3, #494).
+"""Tests for the synchronous AMI event listener.
 
 Drives the listener by replaying captured fixtures through a fake socket,
 including across arbitrary recv boundaries, plus noise-filter and

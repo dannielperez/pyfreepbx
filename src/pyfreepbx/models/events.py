@@ -1,4 +1,4 @@
-"""Typed AMI event DTOs for the event listener (OPS-SNAP-3, #494).
+"""Typed AMI event DTOs for the event listener.
 
 Faithful, **stateless** representations of the Asterisk Manager Interface (AMI)
 events the snapshot-on-call listener consumes. Parsing/normalization lives in
