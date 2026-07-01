@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  # Required gate: the Python version UniqueOS (our primary consumer) runs on.
+  # Required gate: the primary supported Python version.
   test:
     name: test (3.14 · required)
     runs-on: ubuntu-latest

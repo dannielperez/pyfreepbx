@@ -1,14 +1,12 @@
-"""Integration-pattern tests — mirror how UniqueOS consumes pyfreepbx.
+"""Integration-pattern tests — how a downstream consumer uses pyfreepbx.
 
-pyfreepbx is the most-used vendor SDK in UniqueOS (16 call-site files across
-``access_control``, ``devices``, ``organizations``). These tests pin the public
-surface those call sites depend on, so an accidental rename/removal fails *here*
-instead of silently breaking the consumer.
+These tests pin the public surface a consumer's call sites depend on, so an
+accidental rename/removal fails *here* instead of silently breaking the consumer.
 
 They require no live FreePBX instance and open no socket — every assertion is
 against the importable public API, the exception hierarchy, pure URL parsing,
-and the AMI event-parsing contract. See ``docs/integration-audit.md`` for the
-call-site map this mirrors and ``docs/FIELD_LEARNINGS.md`` for the quirks.
+and the AMI event-parsing contract. See ``docs/FIELD_LEARNINGS.md`` for the
+quirks.
 """
 
 from __future__ import annotations
@@ -43,7 +41,7 @@ from pyfreepbx.exceptions import AMITimeout
 from pyfreepbx.models.events import HangupEvent, UnknownEvent
 
 # ---------------------------------------------------------------------------
-# Public exports — the names UniqueOS imports
+# Public exports — the names a consumer imports
 # ---------------------------------------------------------------------------
 
 
@@ -58,7 +56,7 @@ class TestPublicExports:
         assert pyfreepbx.__version__
 
     def test_consumer_critical_names_exported(self) -> None:
-        # The exact symbols UniqueOS call sites import (audit doc).
+        # The exact symbols a consumer's call sites import.
         required = {
             "FreePBX",
             "AMIEvent",
@@ -97,8 +95,8 @@ class TestExceptionHierarchy:
             assert issubclass(exc, FreePBXError)
 
     def test_ami_connection_error_is_ami_error(self) -> None:
-        # originate.py / call_listener.py: AMIConnectionError trips the breaker,
-        # a bare AMIError is a healthy-box refusal — the split must hold.
+        # AMIConnectionError trips the breaker, a bare AMIError is a
+        # healthy-box refusal — the split must hold for consumers.
         assert issubclass(AMIConnectionError, AMIError)
 
     def test_ami_timeout_is_ami_error_but_distinct(self) -> None:
@@ -123,7 +121,7 @@ class TestExceptionHierarchy:
 
 
 # ---------------------------------------------------------------------------
-# Facade construction & URL parsing — exactly how UniqueOS builds the client
+# Facade construction & URL parsing — exactly how a consumer builds the client
 # ---------------------------------------------------------------------------
 
 
@@ -164,7 +162,7 @@ class TestFacadeConstruction:
             pbx.close()
 
     def test_service_accessors_present(self) -> None:
-        # The properties pbx_sync.py / freepbx.py reach through.
+        # The service properties a sync/adapter consumer reaches through.
         pbx = FreePBX(host="pbx.example.com", api_token="t")
         services = ("extensions", "queues", "system", "health", "firewall", "diagnostics", "rest")
         try:
@@ -176,7 +174,7 @@ class TestFacadeConstruction:
 
 class TestConfigContract:
     def test_oauth2_detection(self) -> None:
-        # has_oauth2 drives the facade's token-provider wiring + UniqueOS auth-mode precedence.
+        # has_oauth2 drives the facade's token-provider wiring + consumer auth-mode precedence.
         assert FreePBXConfig(host="h", client_id="a", client_secret="b").has_oauth2 is True
         assert FreePBXConfig(host="h", api_token="tok").has_oauth2 is False
 
@@ -207,7 +205,7 @@ class TestServiceMethodSurface:
     @pytest.mark.parametrize(
         ("service", "method"),
         [
-            # pbx_sync.py — read/upsert sweep
+            # read/upsert sweep
             ("extensions", "list"),
             ("queues", "list"),
             ("firewall", "list_networks"),
@@ -237,14 +235,14 @@ class TestServiceMethodSurface:
         assert callable(getattr(svc, method)), f"{service}.{method} not callable"
 
     def test_originate_signature_accepts_timeout_ms(self) -> None:
-        # originate.py pins timeout_ms=15000 — the keyword must be accepted.
+        # A consumer pins timeout_ms=15000 — the keyword must be accepted.
         sig = inspect.signature(FreePBX.originate)
         # originate(**kwargs) delegates; ensure it is var-keyword so timeout_ms passes through.
         assert any(p.kind is inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
 
 
 # ---------------------------------------------------------------------------
-# AMI event contract — parse_event + AMI_IDLE sentinel (call_ingestion/listener)
+# AMI event contract — parse_event + AMI_IDLE sentinel
 # ---------------------------------------------------------------------------
 
 
@@ -263,7 +261,7 @@ class TestAMIEventContract:
         assert ev.received_at == 42.0
 
     def test_unknown_event_never_raises(self) -> None:
-        # parse_event must never raise on an unmodelled Event — call_ingestion relies on it.
+        # parse_event must never raise on an unmodelled Event — consumers rely on it.
         ev = parse_event({"Event": "TotallyMadeUpEvent"}, received_at=1.5)
         assert isinstance(ev, UnknownEvent)
         assert ev.event == "TotallyMadeUpEvent"
@@ -276,7 +274,7 @@ class TestAMIEventContract:
         assert not isinstance(AMI_IDLE, AMIEvent)
 
     def test_listener_constructible_without_socket(self) -> None:
-        # call_listener.py instantiates AMIEventListener(config); construction must not connect.
+        # A consumer instantiates AMIEventListener(config); construction must not connect.
         listener = AMIEventListener(AMIConfig(host="h", username="u", secret="s"))
         assert hasattr(listener, "listen")
         assert callable(listener.listen)

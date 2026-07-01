@@ -1,13 +1,13 @@
-"""Synchronous AMI event listener (OPS-SNAP-3, #494).
+"""Synchronous AMI event listener.
 
 Connects to AMI, authenticates, and streams **typed events**. Synchronous and
-stateless by design (owner decision 2026-06-17):
+stateless by design:
 
 * Reuses the existing :class:`~pyfreepbx.clients.ami.AMIClient` socket transport
   (no asyncio, no new runtime dependencies).
 * Holds **no** call-session state and **no** ``ActionID``→``Uniqueid`` map — those
   belong to the consuming application.
-* A consumer needing async (e.g. a long-lived UniqueOS runner) bridges this with
+* A consumer needing async (e.g. a long-lived runner) bridges this with
   a thread + queue; the listener itself just yields events.
 
 Event delivery relies on AMI's default behaviour: an authenticated manager

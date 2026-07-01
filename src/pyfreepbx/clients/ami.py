@@ -446,7 +446,7 @@ class AMIClient(BaseClient):
         real call) and is deliberately **not** in :data:`_SAFE_ACTIONS`. It is
         exposed as an explicit typed method — never via the generic
         ``run_action`` escape hatch — so the call contract is reviewable in one
-        place. The UniqueOS service layer owns the policy (permission gate,
+        place. The consumer's service layer owns the policy (permission gate,
         dry-run, audit, circuit breaker); this method owns only the protocol.
 
         The action is issued **asynchronously** (``Async: true``) so AMI returns
