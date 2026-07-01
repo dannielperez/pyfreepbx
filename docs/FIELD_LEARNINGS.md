@@ -1,26 +1,23 @@
 # pyfreepbx — Field Learnings
 
-> Integration field notes for the **most-used** vendor SDK in downstream application
-> (16 call-site files across `access_control`, `devices`, `organizations`).
-> Unlike `pyruijie`'s incident-validated notes, much of pyfreepbx's GraphQL
-> surface is **SDK-declared provisional** (not yet validated against a live
-> FreePBX instance). Each item below is tagged with its validation status so a
-> consumer knows what to trust:
+> Integration field notes for `pyfreepbx`. Much of the GraphQL surface is
+> **SDK-declared provisional** (not yet validated against a live FreePBX
+> instance). Each item below is tagged with its validation status so a consumer
+> knows what to trust:
 >
 > - **[CONTRACT]** — a stable API/transport contract verified in the SDK source.
 > - **[PROVISIONAL]** — the SDK itself flags this unvalidated against a live box;
 >   treat results defensively until introspected.
-> - **[CONSUMER]** — a guard/quirk learned from how downstream application actually calls it.
+> - **[CONSUMER]** — a guard/quirk worth knowing when calling the SDK.
 
 ## Auth — two modes, OAuth2 preferred
 
 - **[CONTRACT]** `FreePBXConfig.has_oauth2` is `bool(client_id and client_secret)`.
   When both are set the facade wires an `OAuth2Client` token provider
   (client-credentials grant, auto-refresh); otherwise it falls back to the
-  static `api_token` Bearer. downstream application mirrors this precedence at
-  `devices/services/freepbx.py` (`metadata["auth_mode"] > api_token > oauth2`)
-  and `organizations/services/connections.py`. Don't add a third auth path —
-  converge on these two (charter §11 "two ways to do one thing").
+  static `api_token` Bearer. Mirror this precedence in a consumer
+  (`auth_mode > api_token > oauth2`). Don't add a third auth path — converge on
+  these two.
 
 ## GraphQL reads are PROVISIONAL — empty ≠ authoritative-zero
 
@@ -30,11 +27,10 @@
   `data.get("fetchAllExtensions", {}).get("extensions", [])` — so a schema
   mismatch returns **`[]` silently**, never raising. Same shape for queues and
   the firewall reads.
-- **[CONSUMER]** Because empty is indistinguishable from a genuine zero,
-  `devices/services/pbx_sync.py::_mark_missing_stale()` **skips the destructive
-  "mark MISSING" sweep when a fetch returns empty** — never delete/retire rows
-  on an empty provisional fetch (charter §5 "never delete on sync"). Any new
-  consumer of these reads must keep that guard.
+- **[CONSUMER]** Because empty is indistinguishable from a genuine zero, a
+  consumer that syncs SDK results into its own store **must skip any destructive
+  "mark missing / retire" sweep when a fetch returns empty** — never delete rows
+  on an empty provisional fetch.
 - **Action:** validate the queries via introspection
   (`{ __schema { queryType { fields { name } } } }`) on a live box, then drop the
   provisional warnings. Until then, treat counts as best-effort.
@@ -55,16 +51,16 @@
   blocking generator that yields parsed `AMIEvent` DTOs. On a read-timeout it
   yields the **`AMI_IDLE` sentinel** (an `_IdleTick`, compared by identity
   `event is AMI_IDLE`) — a *liveness tick*, never a disconnect and never an
-  event. Consumers MUST filter it (`downstream_app/access_control/call_listener.py`).
+  event. Consumers MUST filter it.
 - **[CONTRACT]** `AMITimeout` subclasses `AMIError` so a legacy broad
   `except AMIError` can't crash on an idle tick, but it is always caught
   more-specifically first. Distinguish **transport failure** (`AMIConnectionError`
-  → trip the circuit breaker) from **vendor refusal** (other `AMIError` → the box
-  is healthy, the action was rejected) — `originate.py` relies on this split.
+  → trip a circuit breaker) from **vendor refusal** (other `AMIError` → the box
+  is healthy, the action was rejected).
 - **[CONSUMER] originate timeout:** `AMIClient.originate(timeout_ms=30000)`
-  defaults to **30 s** — too long for an operator panel. downstream application pins
-  `_ORIGINATE_TIMEOUT_MS = 15_000` at `access_control/originate.py`. Pass an
-  explicit `timeout_ms` for any interactive call path.
+  defaults to **30 s** — too long for an interactive operator panel. Pin
+  something shorter (e.g. 15 s) and pass an explicit `timeout_ms` for any
+  interactive call path.
 - **[CONSUMER]** AMI is **optional**: the facade only builds an `AMIClient` when
   `ami_username` *and* `ami_secret` are provided; `pbx.ami_available` reflects
   this, and `connect_ami()` / `originate()` raise `ConfigError` when AMI is
@@ -77,9 +73,8 @@
   `None` on `OriginateResponse` (the consumer resolves it from the originated
   channel). `parse_event(raw: dict[str, str], received_at: float)` maps a raw
   AMI frame to a typed subclass; unknown `Event` values become `UnknownEvent`
-  (never raises). `access_control/call_ingestion.py` keys `CallSession` rows on
-  `linkedid` and derives disposition from the **event sequence**, not the Hangup
-  cause code.
+  (never raises). Key call-session rows on `linkedid` and derive disposition
+  from the **event sequence**, not the Hangup cause code.
 
 ## URL parsing — bare hostnames and scheme inference
 
@@ -87,17 +82,17 @@
   With no scheme it infers `http` for ports 80–83, else `https`; the path
   defaults to `/admin/api/api` (the standard FreePBX API prefix, under which
   `/token`, `/gql`, `/rest`, `/authorize` all live). Explicit kwargs (e.g.
-  `port=`) override URL-derived values. This is the constructor downstream application uses
-  everywhere — don't hand-build `FreePBXConfig`.
+  `port=`) override URL-derived values. Prefer this constructor over hand-building
+  `FreePBXConfig`.
 
-## Timeouts (charter §5 — every external call must have one)
+## Timeouts — every external call must have one
 
 - GraphQL/REST: `FreePBXConfig.timeout` (default 30 s). Interactive callers pin
-  shorter — `connections.py` uses 15 s for the connection test.
+  shorter — e.g. 15 s for a connection test.
 - AMI socket: `AMIConfig.timeout` (default 10 s) drives the idle-read window
   that produces `AMI_IDLE`.
 
 ---
 
-See `docs/integration-audit.md` for the full downstream application call-site map and the
-public-surface contract pinned by `tests/test_integration_patterns.py`.
+See `tests/test_integration_patterns.py` for the public-surface contract these
+notes describe.

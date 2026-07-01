@@ -1,4 +1,4 @@
-"""Tests for AMI frame → typed DTO parsing (OPS-SNAP-3, #494).
+"""Tests for AMI frame → typed DTO parsing.
 
 Each modelled event is parsed from a real captured fixture block and checked for
 the correct DTO type and key fields. Transfer events use synthetic (spec-derived)

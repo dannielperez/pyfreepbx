@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 
 class CallDetailRecord(BaseModel):
-    """Normalized CDR record used across pyfreepbx and downstream application."""
+    """Normalized CDR record."""
 
     timestamp: datetime | None = None
     source: str = ""

@@ -1,15 +1,12 @@
-# AMI fixture corpus — FreePBX/Asterisk call lifecycle (issue #494, OPS-SNAPSHOT)
+# AMI fixture corpus — FreePBX/Asterisk call lifecycle
 
-Permanent fixture corpus for the `pyfreepbx` AMI event listener (OPS-SNAP-3) and
-the downstream application `CallSession` ingestion layer (OPS-SNAP-4/5). Each file is a verbatim
-slice of one real call's AMI event stream, captured from the production PBX and
-sanitized.
-
-Proposed install path: `vendor/pyfreepbx/tests/fixtures/ami/`
+Permanent fixture corpus for the `pyfreepbx` AMI event listener and a downstream
+consumer's call-session ingestion layer. Each file is a verbatim slice of one
+real call's AMI event stream, captured from a production PBX and sanitized.
 
 ## Provenance
 
-- **Source:** live production PBX `***REMOVED***` (read-only AMI, `admin` account).
+- **Source:** a production FreePBX/Asterisk instance (read-only AMI).
 - **Asterisk:** 16.30.0 · **AMI protocol:** `Asterisk Call Manager/5.0.5` · channel tech **PJSIP**.
 - **Captured:** 2026-06-17 (UTC) via passive `Events: on` AMI sessions + one authorized
   self-contained echo-test `Originate` (`originate.txt`).
