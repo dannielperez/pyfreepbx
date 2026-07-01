@@ -1,4 +1,4 @@
-"""Pure AMI-frame → typed-DTO parsing for the event listener (OPS-SNAP-3, #494).
+"""Pure AMI-frame → typed-DTO parsing for the event listener.
 
 A single pure function, :func:`parse_event`, maps one parsed AMI frame (a
 ``{header: value}`` dict, as produced by the AMI transport) to a typed
