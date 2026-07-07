@@ -3,8 +3,10 @@
 Read operations (list, get) use the FreePBXClient to query the GraphQL API.
 Write operations (create, update, update_secret) use the REST API.
 
-.. warning:: Read methods are **experimental** — the underlying GraphQL
-   queries have not been validated against a live FreePBX instance.
+``list()`` is validated against a live FreePBX instance (2026-07).
+
+.. warning:: ``get()`` remains **experimental** — its GraphQL query has not
+   been validated against a live FreePBX instance.
 """
 
 from __future__ import annotations
@@ -40,17 +42,9 @@ class ExtensionService:
     def list(self) -> list[Extension]:
         """Fetch all extensions from FreePBX.
 
-        .. warning:: **Experimental** — uses a provisional GraphQL query.
-           The query name, response nesting, and field names have not been
-           validated against a live FreePBX instance and will likely need
-           adjustment. Run a GraphQL introspection query to confirm.
+        Validated against a live FreePBX instance (2026-07) — see
+        ``FreePBXClient.fetch_all_extensions`` for the schema note.
         """
-        warnings.warn(
-            "ExtensionService.list() uses a provisional GraphQL query that "
-            "has not been validated against a live FreePBX instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
         raw = self._client.fetch_all_extensions()
         extensions = [Extension.model_validate(item) for item in raw]
         log.debug("Listed %d extensions", len(extensions))
