@@ -63,3 +63,39 @@ class TestGraphQLClient:
         with pytest.raises(GraphQLError, match="Syntax error") as exc_info:
             client.query("{ bad }")
         assert len(exc_info.value.errors) == 1
+
+    @respx.mock
+    def test_query_schema_error_http_400(self, config: FreePBXConfig) -> None:
+        """FreePBX returns schema errors as HTTP 400 with a GraphQL errors body
+        (observed live 2026-07: unknown field). They must surface as GraphQLError
+        with the schema message, not a bare HTTPStatusError."""
+        respx.post(f"{config.graphql_url}").mock(
+            return_value=httpx.Response(
+                400,
+                json={
+                    "errors": [
+                        {
+                            "message": (
+                                'Cannot query field "extensions" on type '
+                                '"ExtensionConnection". Did you mean "extension"?'
+                            ),
+                            "status": False,
+                        }
+                    ]
+                },
+            )
+        )
+        client = GraphQLClient(config)
+        with pytest.raises(GraphQLError, match="Cannot query field") as exc_info:
+            client.query("{ fetchAllExtensions { extensions { extension } } }")
+        assert len(exc_info.value.errors) == 1
+
+    @respx.mock
+    def test_query_http_error_without_graphql_body(self, config: FreePBXConfig) -> None:
+        """Non-GraphQL HTTP failures keep raising HTTPStatusError."""
+        respx.post(f"{config.graphql_url}").mock(
+            return_value=httpx.Response(500, text="Internal Server Error")
+        )
+        client = GraphQLClient(config)
+        with pytest.raises(httpx.HTTPStatusError):
+            client.query("{ __typename }")

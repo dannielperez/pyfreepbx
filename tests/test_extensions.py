@@ -66,7 +66,9 @@ class TestExtensionService:
 
 
 class TestExperimentalWarnings:
-    def test_list_emits_graphql_warning(self, mock_freepbx_client: MagicMock) -> None:
+    def test_list_emits_no_warning(self, mock_freepbx_client: MagicMock) -> None:
+        """list() is validated against a live FreePBX (2026-07) — the
+        provisional-query warning must be gone."""
         mock_freepbx_client.fetch_all_extensions.return_value = []
 
         svc = ExtensionService(mock_freepbx_client)
@@ -75,8 +77,7 @@ class TestExperimentalWarnings:
             svc.list()
 
         user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
-        assert len(user_warnings) >= 1
-        assert "provisional" in str(user_warnings[0].message).lower()
+        assert user_warnings == []
 
     def test_get_emits_graphql_warning(self, mock_freepbx_client: MagicMock) -> None:
         mock_freepbx_client.fetch_extension.return_value = {

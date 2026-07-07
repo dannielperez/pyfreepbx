@@ -76,7 +76,20 @@ class GraphQLClient(BaseClient):
             raise AuthenticationError(
                 f"GraphQL authentication failed: HTTP {response.status_code}"
             )
-        response.raise_for_status()
+        if response.is_error:
+            # FreePBX returns schema/validation failures as HTTP 400 with a
+            # standard GraphQL ``errors`` body (observed live: querying an
+            # unknown field). Surface those as GraphQLError so callers see
+            # the actual message instead of a bare HTTPStatusError.
+            try:
+                errors = response.json().get("errors")
+            except ValueError:
+                errors = None
+            if errors:
+                first_msg = errors[0].get("message", "Unknown GraphQL error")
+                log.error("GraphQL error (HTTP %d): %s", response.status_code, first_msg)
+                raise GraphQLError(first_msg, errors=errors)
+            response.raise_for_status()
 
         body = response.json()
 
