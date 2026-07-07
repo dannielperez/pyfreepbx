@@ -31,7 +31,7 @@ query {
     fetchAllExtensions {
         status
         message
-        extensions {
+        extension {
             user {
                 extension
                 name
@@ -171,24 +171,19 @@ class FreePBXClient:
     def fetch_all_extensions(self) -> list[dict[str, Any]]:
         """Fetch all extensions from FreePBX.
 
-        .. warning:: **Experimental** — the GraphQL query name and response
-           structure are provisional and have not been validated against a
-           live FreePBX instance. They will likely need adjustment.
+        Validated against a live FreePBX instance (2026-07): the connection
+        type is ``ExtensionConnection`` and its list field is the singular
+        ``extension`` (the earlier provisional query used ``extensions`` and
+        got a schema 400). The legacy plural key is still read as a fallback
+        for other FreePBX versions.
 
         Returns raw user dicts from the GraphQL response. Field names
         depend on your FreePBX version — the service layer normalises
         these into typed models.
         """
-        import warnings
-        warnings.warn(
-            "fetch_all_extensions uses a provisional GraphQL query that has "
-            "not been validated against a live FreePBX instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
         data = self._gql.query(FETCH_ALL_EXTENSIONS)
         result = data.get("fetchAllExtensions", {})
-        raw = result.get("extensions", [])
+        raw = result.get("extension") or result.get("extensions") or []
         log.debug("Fetched %d raw extensions", len(raw))
         return [item.get("user", item) for item in raw]
 
