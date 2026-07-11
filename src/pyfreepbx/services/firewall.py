@@ -161,6 +161,18 @@ class FirewallService:
         indeterminate readback is reported as partial and is never followed by a
         second speculative mutation.
         """
+        new_exists, verification_error = self._network_exists(new_network)
+        if new_exists is True:
+            return FirewallReplacementResult(
+                state=FirewallReplacementState.CREATE_FAILED,
+                error=f"Replacement network {new_network} already exists",
+            )
+        if new_exists is None:
+            return FirewallReplacementResult(
+                state=FirewallReplacementState.PARTIAL,
+                verification_error=verification_error,
+            )
+
         create_error = ""
         try:
             self.create_network(FirewallNetworkCreate(network=new_network, name=name, zone=zone))

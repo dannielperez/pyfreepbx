@@ -14,6 +14,7 @@ def test_replace_creates_before_deleting_old_network():
     service = _service()
     service.create_network = MagicMock()
     service.delete_network = MagicMock(return_value=True)
+    service.get_network = MagicMock(side_effect=NotFoundError("absent"))
     calls = MagicMock()
     calls.attach_mock(service.create_network, "create")
     calls.attach_mock(service.delete_network, "delete")
@@ -36,11 +37,25 @@ def test_create_failure_with_absent_replacement_leaves_old_network_untouched():
     service.delete_network.assert_not_called()
 
 
+def test_preexisting_replacement_is_not_adopted_or_deleted():
+    service = _service()
+    service.get_network = MagicMock(return_value=object())
+    service.create_network = MagicMock()
+    service.delete_network = MagicMock()
+
+    result = service.replace_network("1.2.3.4/32", "5.6.7.8/32", name="Site", zone="trusted")
+
+    assert result.state is FirewallReplacementState.CREATE_FAILED
+    assert "already exists" in result.error
+    service.create_network.assert_not_called()
+    service.delete_network.assert_not_called()
+
+
 def test_delete_failure_compensates_only_after_old_network_is_confirmed_present():
     service = _service()
     service.create_network = MagicMock()
     service.delete_network = MagicMock(side_effect=[RuntimeError("delete old failed"), True])
-    service.get_network = MagicMock(return_value=object())
+    service.get_network = MagicMock(side_effect=[NotFoundError("replacement absent"), object()])
 
     result = service.replace_network("1.2.3.4/32", "5.6.7.8/32", name="Site", zone="trusted")
 
@@ -55,7 +70,9 @@ def test_ambiguous_delete_readback_reports_partial_without_compensation():
     service = _service()
     service.create_network = MagicMock()
     service.delete_network = MagicMock(side_effect=RuntimeError("delete timed out"))
-    service.get_network = MagicMock(side_effect=RuntimeError("readback timed out"))
+    service.get_network = MagicMock(
+        side_effect=[NotFoundError("replacement absent"), RuntimeError("readback timed out")]
+    )
 
     result = service.replace_network("1.2.3.4/32", "5.6.7.8/32", name="Site", zone="trusted")
 
