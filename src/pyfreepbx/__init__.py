@@ -19,6 +19,7 @@ from pyfreepbx.exceptions import (
 from pyfreepbx.facade import FreePBX
 from pyfreepbx.models.events import AMIEvent
 from pyfreepbx.models.health import StatusResult
+from pyfreepbx.services.firewall import FirewallReplacementResult, FirewallReplacementState
 
 __all__ = [
     "AMIAuthError",
@@ -28,6 +29,8 @@ __all__ = [
     "AMIEventListener",
     "AuthenticationError",
     "ConfigError",
+    "FirewallReplacementResult",
+    "FirewallReplacementState",
     "FreePBX",
     "FreePBXConflictError",
     "FreePBXError",
