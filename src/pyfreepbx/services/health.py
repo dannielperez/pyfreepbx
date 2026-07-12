@@ -40,6 +40,30 @@ class HealthService:
         self._client = client
         self._ami = ami
 
+    def _ensure_ami_session(self) -> bool:
+        """Connect + authenticate the AMI client on demand.
+
+        The service receives a *configured but unconnected* :class:`AMIClient`
+        (the facade wires it lazily), so every AMI-backed method funnels
+        through here — callers never manage the session themselves. Before
+        this existed, ``_check_ami``/``endpoint_summary`` pinged an
+        unconnected socket and every AMI-configured health check reported
+        DOWN ("Not connected to AMI. Call connect() first."), observed live
+        2026-07-11.
+
+        Returns ``False`` when AMI is unconfigured. Raises the underlying
+        ``AMIError``/``AMIAuthError``/``OSError`` when a configured session
+        cannot be established — callers decide whether that is a graceful
+        ``None`` or a failed health check.
+        """
+        if self._ami is None:
+            return False
+        if not self._ami.connected:
+            self._ami.connect()
+        if not self._ami.authenticated:
+            self._ami.login()
+        return True
+
     # ------------------------------------------------------------------
     # Aggregate health
     # ------------------------------------------------------------------
@@ -69,10 +93,10 @@ class HealthService:
         Returns:
             :class:`SystemInfo` if AMI is available, ``None`` otherwise.
         """
-        if self._ami is None:
-            log.warning("pbx_info requires AMI — skipping.")
-            return None
         try:
+            if not self._ensure_ami_session():
+                log.warning("pbx_info requires AMI — skipping.")
+                return None
             return self._ami.core_status()
         except Exception as exc:
             log.error("Failed to fetch PBX info: %s", exc)
@@ -89,11 +113,10 @@ class HealthService:
             :class:`EndpointSummary` with totals per state,
             or ``None`` if AMI is unavailable.
         """
-        if self._ami is None:
-            log.warning("endpoint_summary requires AMI — skipping.")
-            return None
-
         try:
+            if not self._ensure_ami_session():
+                log.warning("endpoint_summary requires AMI — skipping.")
+                return None
             devices = self._ami.pjsip_endpoints()
         except Exception as exc:
             log.error("Failed to fetch endpoints: %s", exc)
@@ -120,11 +143,10 @@ class HealthService:
             List of :class:`Device` with state UNREGISTERED or
             UNAVAILABLE, or ``None`` if AMI is unavailable.
         """
-        if self._ami is None:
-            log.warning("unregistered_endpoints requires AMI — skipping.")
-            return None
-
         try:
+            if not self._ensure_ami_session():
+                log.warning("unregistered_endpoints requires AMI — skipping.")
+                return None
             devices = self._ami.pjsip_endpoints()
         except Exception as exc:
             log.error("Failed to fetch endpoints: %s", exc)
@@ -147,11 +169,10 @@ class HealthService:
         Returns:
             List of :class:`QueueStats`, or ``None`` if AMI is unavailable.
         """
-        if self._ami is None:
-            log.warning("queue_overview requires AMI — skipping.")
-            return None
-
         try:
+            if not self._ensure_ami_session():
+                log.warning("queue_overview requires AMI — skipping.")
+                return None
             return self._ami.queue_summary()
         except Exception as exc:
             log.error("Failed to fetch queue overview: %s", exc)
@@ -174,7 +195,7 @@ class HealthService:
 
     def _check_ami(self) -> HealthCheck:
         try:
-            if self._ami is None:
+            if not self._ensure_ami_session():
                 return HealthCheck(
                     name="ami", status=HealthStatus.DOWN, detail="Not configured"
                 )
