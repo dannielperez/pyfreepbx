@@ -23,6 +23,9 @@ from pyfreepbx.models.inventory import InventoryListResult
 if TYPE_CHECKING:
     from pyfreepbx.config import FreePBXConfig
 
+if TYPE_CHECKING:
+    from pyfreepbx.config import FreePBXConfig
+
 log = get_logger("clients.freepbx")
 
 # ---------------------------------------------------------------------------
@@ -75,6 +78,57 @@ mutation UpdateExtension($input: updateExtensionInput!) {
         status
         message
         clientMutationId
+    }
+}
+"""
+
+FETCH_ALL_RECORDINGS = """\
+query {
+    fetchAllRecordings {
+        status
+        message
+        recordings { id name description fcode language playback }
+    }
+}
+"""
+
+FETCH_RECORDING_FILES = """\
+query FetchRecordingFiles($search: String) {
+    fetchRecordingFiles(search: $search) {
+        status
+        message
+        recodingFiles
+    }
+}
+"""
+
+FETCH_CDR = """\
+query FetchCdr($id: ID!) {
+    fetchCdr(id: $id) {
+        uniqueid calldate src dst duration billsec disposition linkedid recordingfile
+        status message
+    }
+}
+"""
+
+CHECK_DISK_SPACE = """\
+query {
+    checkdiskspace {
+        status
+        message
+        diskspace { id storage_path available_space used_space total_size used_percentage }
+    }
+}
+"""
+
+FETCH_ASTERISK_DETAILS = """\
+query {
+    fetchAsteriskDetails {
+        status
+        message
+        asteriskStatus
+        asteriskVersion
+        amiStatus
     }
 }
 """
@@ -187,6 +241,31 @@ class FreePBXClient:
         if not isinstance(result, dict):
             raise ValueError("FreePBX omitted updateExtension from its response")
         return result
+
+    # ------------------------------------------------------------------
+    # Recordings / CDR / health extras
+    # ------------------------------------------------------------------
+
+    def fetch_all_recordings(self) -> list[dict[str, Any]]:
+        data = self._gql.query(FETCH_ALL_RECORDINGS)
+        return data.get("fetchAllRecordings", {}).get("recordings") or []
+
+    def fetch_recording_files(self, search: str = "") -> list[str]:
+        data = self._gql.query(FETCH_RECORDING_FILES, variables={"search": search})
+        return data.get("fetchRecordingFiles", {}).get("recodingFiles") or []
+
+    def fetch_cdr(self, record_id: str) -> dict[str, Any] | None:
+        data = self._gql.query(FETCH_CDR, variables={"id": record_id})
+        result = data.get("fetchCdr") or {}
+        return result if result.get("uniqueid") else None
+
+    def check_disk_space(self) -> list[dict[str, Any]]:
+        data = self._gql.query(CHECK_DISK_SPACE)
+        return data.get("checkdiskspace", {}).get("diskspace") or []
+
+    def fetch_asterisk_details(self) -> dict[str, Any]:
+        data = self._gql.query(FETCH_ASTERISK_DETAILS)
+        return data.get("fetchAsteriskDetails") or {}
 
     # ------------------------------------------------------------------
     # Firewall
