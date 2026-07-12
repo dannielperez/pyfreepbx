@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
+from pyfreepbx.models.inventory import InventoryListResult
 
 if TYPE_CHECKING:
     from pyfreepbx.clients.freepbx import FreePBXClient
@@ -48,6 +49,13 @@ class ExtensionService:
         extensions = [Extension.model_validate(item) for item in raw]
         log.debug("Listed %d extensions", len(extensions))
         return extensions
+
+    def list_result(self) -> InventoryListResult[Extension]:
+        """Fetch extensions with an authoritative-response signal."""
+        raw_result = self._client.fetch_all_extensions_result()
+        extensions = [Extension.model_validate(item) for item in raw_result.items]
+        log.debug("Listed %d extensions", len(extensions))
+        return InventoryListResult(items=extensions, complete=raw_result.complete)
 
     def get(self, extension_id: str) -> Extension:
         """Fetch a single extension by number.

@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.clients.graphql import GraphQLClient
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.inventory import InventoryListResult
 
 if TYPE_CHECKING:
     from pyfreepbx.config import FreePBXConfig
@@ -135,11 +136,29 @@ class FreePBXClient:
         depend on your FreePBX version — the service layer normalises
         these into typed models.
         """
+        return self.fetch_all_extensions_result().items
+
+    def fetch_all_extensions_result(self) -> InventoryListResult[dict[str, Any]]:
+        """Fetch extensions and report whether the response is authoritative."""
         data = self._gql.query(FETCH_ALL_EXTENSIONS)
-        result = data.get("fetchAllExtensions", {})
-        raw = result.get("extension") or result.get("extensions") or []
-        log.debug("Fetched %d raw extensions", len(raw))
-        return [item.get("user", item) for item in raw]
+        result = data.get("fetchAllExtensions")
+        if not isinstance(result, dict):
+            return InventoryListResult(items=[], complete=False)
+        collection_key = next(
+            (key for key in ("extension", "extensions") if key in result),
+            None,
+        )
+        raw_value = result.get(collection_key) if collection_key else None
+        raw = raw_value if isinstance(raw_value, list) else []
+        items = [item.get("user", item) for item in raw if isinstance(item, dict)]
+        complete = (
+            result.get("status") is True
+            and collection_key is not None
+            and isinstance(raw_value, list)
+            and len(items) == len(raw)
+        )
+        log.debug("Fetched %d raw extensions (complete=%s)", len(items), complete)
+        return InventoryListResult(items=items, complete=complete)
 
     def fetch_extension(self, extension_id: str) -> dict[str, Any] | None:
         """Fetch a single extension by number. Returns None if not found."""
