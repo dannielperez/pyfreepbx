@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from pyfreepbx.services.system import SystemService
 
 
@@ -35,4 +37,14 @@ def test_apply_config_uses_doreload_and_returns_transaction() -> None:
     assert result.transaction_id == "42"
     query, variables = client.graphql.mutation.call_args.args
     assert "doreload" in query
-    assert variables == {"input": {"clientMutationId": "pyfreepbx"}}
+    assert variables == {"input": {}}
+
+
+def test_apply_config_timeout_propagates_without_retry() -> None:
+    client = MagicMock()
+    client.graphql.mutation.side_effect = TimeoutError("response timed out")
+
+    with pytest.raises(TimeoutError, match="response timed out"):
+        SystemService(client).apply_config()
+
+    client.graphql.mutation.assert_called_once()

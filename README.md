@@ -175,6 +175,9 @@ pbx.system.config_reload_status()  # → ConfigReloadStatus (GraphQL)
 pbx.system.apply_config()          # → ApplyConfigResult (GraphQL, async transaction)
 ```
 
+`apply_config()` is intentionally not retried. A timeout may occur after FreePBX accepts the
+reload but before it returns the transaction id; callers should report that outcome as indeterminate.
+
 ### Extensions (experimental, GraphQL)
 
 ```python

@@ -62,9 +62,15 @@ class SystemService:
         return ConfigReloadStatus.model_validate(data.get("fetchNeedReload") or {})
 
     def apply_config(self) -> ApplyConfigResult:
-        """Start FreePBX's asynchronous ``doreload`` apply-config operation."""
+        """Start FreePBX's asynchronous ``doreload`` apply-config operation.
+
+        This mutation is not safely retryable: a transport timeout can occur
+        after FreePBX accepts the reload but before it returns the transaction
+        id. Callers must surface that outcome as indeterminate rather than
+        automatically issuing another reload.
+        """
         data = self._client.graphql.mutation(
             _DO_RELOAD,
-            {"input": {"clientMutationId": "pyfreepbx"}},
+            {"input": {}},
         )
         return ApplyConfigResult.model_validate(data.get("doreload") or {})
