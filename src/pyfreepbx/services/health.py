@@ -8,18 +8,24 @@ a clear warning instead of raising.
 
 from __future__ import annotations
 
-from pyfreepbx.clients.ami import AMIClient
-from pyfreepbx.clients.freepbx import FreePBXClient
+from typing import TYPE_CHECKING
+
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.health import (
+    AsteriskDetails,
+    DiskSpace,
     EndpointSummary,
     HealthCheck,
     HealthStatus,
     HealthSummary,
 )
-from pyfreepbx.models.queue import QueueStats
-from pyfreepbx.models.system import SystemInfo
+
+if TYPE_CHECKING:
+    from pyfreepbx.clients.ami import AMIClient
+    from pyfreepbx.clients.freepbx import FreePBXClient
+    from pyfreepbx.models.queue import QueueStats
+    from pyfreepbx.models.system import SystemInfo
 
 log = get_logger("services.health")
 
@@ -102,6 +108,19 @@ class HealthService:
             log.error("Failed to fetch PBX info: %s", exc)
             return None
 
+    def disk_space(self) -> list[DiskSpace]:
+        """Fetch filesystem utilization through the Dashboard GraphQL module."""
+        return [DiskSpace.model_validate(row) for row in self._client.check_disk_space()]
+
+    def asterisk_details(self) -> AsteriskDetails:
+        """Fetch Asterisk/AMI state through the FreePBX System GraphQL query."""
+        row = self._client.fetch_asterisk_details()
+        return AsteriskDetails(
+            running_status=str(row.get("asteriskStatus") or ""),
+            version=str(row.get("asteriskVersion") or ""),
+            ami_status=str(row.get("amiStatus") or ""),
+        )
+
     # ------------------------------------------------------------------
     # Endpoint registration
     # ------------------------------------------------------------------
@@ -153,8 +172,7 @@ class HealthService:
             return None
 
         offline = [
-            d for d in devices
-            if d.state in (DeviceState.UNREGISTERED, DeviceState.UNAVAILABLE)
+            d for d in devices if d.state in (DeviceState.UNREGISTERED, DeviceState.UNAVAILABLE)
         ]
         log.debug("%d of %d endpoints offline", len(offline), len(devices))
         return offline
@@ -196,9 +214,7 @@ class HealthService:
     def _check_ami(self) -> HealthCheck:
         try:
             if not self._ensure_ami_session():
-                return HealthCheck(
-                    name="ami", status=HealthStatus.DOWN, detail="Not configured"
-                )
+                return HealthCheck(name="ami", status=HealthStatus.DOWN, detail="Not configured")
             if self._ami.ping():
                 return HealthCheck(name="ami", status=HealthStatus.OK)
             return HealthCheck(
