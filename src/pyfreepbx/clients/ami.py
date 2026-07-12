@@ -34,16 +34,19 @@ from __future__ import annotations
 
 import socket
 import uuid
-from typing import Any
+from contextlib import suppress
+from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.clients.base import BaseClient
-from pyfreepbx.config import AMIConfig
 from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError, AMITimeout
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.call import OriginateResult
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.queue import QueueStats
 from pyfreepbx.models.system import SystemInfo
+
+if TYPE_CHECKING:
+    from pyfreepbx.config import AMIConfig
 
 log = get_logger("clients.ami")
 
@@ -52,24 +55,25 @@ _END = _CRLF + _CRLF
 
 # Actions considered safe for a public library to expose directly.
 # Anything outside this set requires run_action() with explicit intent.
-_SAFE_ACTIONS: frozenset[str] = frozenset({
-    "Ping",
-    "Login",
-    "Logoff",
-    "CoreStatus",
-    "CoreSettings",
-    "CoreShowChannels",
-    "SIPpeers",
-    "SIPshowpeer",
-    "PJSIPShowEndpoints",
-    "PJSIPShowEndpoint",
-    "QueueSummary",
-    "QueueStatus",
-    "QueueAdd",
-    "QueueRemove",
-    "QueuePause",
-    "Command",
-})
+_SAFE_ACTIONS: frozenset[str] = frozenset(
+    {
+        "Ping",
+        "Login",
+        "Logoff",
+        "CoreStatus",
+        "CoreSettings",
+        "CoreShowChannels",
+        "SIPpeers",
+        "SIPshowpeer",
+        "PJSIPShowEndpoints",
+        "PJSIPShowEndpoint",
+        "QueueSummary",
+        "QueueStatus",
+        "QueueAdd",
+        "QueueRemove",
+        "QueuePause",
+    }
+)
 
 
 class AMIClient(BaseClient):
@@ -138,9 +142,7 @@ class AMIClient(BaseClient):
             )
         except OSError as exc:
             log.error("AMI connection failed: %s", exc)
-            raise AMIConnectionError(
-                f"Failed to connect to AMI at {host}:{port}: {exc}"
-            ) from exc
+            raise AMIConnectionError(f"Failed to connect to AMI at {host}:{port}: {exc}") from exc
 
         self._sock = sock
         self._buffer = ""
@@ -178,6 +180,17 @@ class AMIClient(BaseClient):
         log.info("AMI authenticated as %s", self._config.username)
         return response
 
+    def reconnect(self) -> dict[str, str]:
+        """Replace a stale AMI session and authenticate the new connection.
+
+        This method never replays an action that may have been accepted before a
+        transport failure. Callers can therefore recover a mid-session drop and
+        decide explicitly whether their interrupted operation is safe to retry.
+        """
+        self.disconnect()
+        self.connect()
+        return self.login()
+
     def disconnect(self) -> None:
         """Send Logoff action and close the TCP socket.
 
@@ -185,14 +198,10 @@ class AMIClient(BaseClient):
         """
         if self._sock is not None:
             if self._authenticated:
-                try:
+                with suppress(AMIError, OSError):
                     self._send_action("Logoff")
-                except OSError:
-                    pass
-            try:
+            with suppress(OSError):
                 self._sock.close()
-            except OSError:
-                pass
             self._sock = None
         self._connected = False
         self._authenticated = False
@@ -304,6 +313,31 @@ class AMIClient(BaseClient):
             params["Queue"] = queue
         return self._collect_events("QueueStatus", **params)
 
+    def queue_pause(
+        self,
+        *,
+        queue: str,
+        interface: str,
+        paused: bool,
+        reason: str | None = None,
+    ) -> None:
+        """Pause or unpause one queue member through the typed AMI action.
+
+        ``QueuePause`` mutates runtime state, so it is exposed explicitly rather
+        than requiring consumers to use the generic action escape hatch.
+        """
+        self._require_auth()
+        params: dict[str, str] = {
+            "Queue": queue,
+            "Interface": interface,
+            "Paused": "true" if paused else "false",
+        }
+        if reason is not None:
+            params["Reason"] = reason
+        response = self._send_action("QueuePause", **params)
+        if response.get("Response") != "Success":
+            raise AMIError(response.get("Message", "QueuePause failed"))
+
     def pjsip_endpoints(self) -> list[Device]:
         """List all PJSIP endpoints and their registration state.
 
@@ -358,6 +392,7 @@ class AMIClient(BaseClient):
             https://docs.asterisk.org/Asterisk_16_Documentation/API_Documentation/AMI_Actions/SIPpeers
         """
         import warnings
+
         warnings.warn(
             "sip_peers() is deprecated — chan_sip was removed in Asterisk 21. "
             "Use pjsip_endpoints() instead. This method will be removed in v0.2.0.",
@@ -411,9 +446,7 @@ class AMIClient(BaseClient):
             )
         return self._send_action(action, **params)
 
-    def run_action_with_events(
-        self, action: str, **params: Any
-    ) -> list[dict[str, str]]:
+    def run_action_with_events(self, action: str, **params: Any) -> list[dict[str, str]]:
         """Execute an action that returns multiple events.
 
         Same as :meth:`run_action` but collects events until the
@@ -535,6 +568,11 @@ class AMIClient(BaseClient):
             event_name = event.get("Event", "")
             if event_name.endswith("Complete"):
                 break
+            if len(events) >= self._config.max_events:
+                raise AMIError(
+                    f"{action} exceeded the {self._config.max_events}-event limit "
+                    "without a completion marker"
+                )
             events.append(event)
 
         log.debug("<<< %s returned %d events", action, len(events))
@@ -610,6 +648,7 @@ class AMIClient(BaseClient):
 # Helpers
 # ------------------------------------------------------------------
 
+
 def _parse_uptime(date_str: str, time_str: str) -> int:
     """Derive seconds-since from AMI CoreStartupDate/CoreStartupTime.
 
@@ -623,6 +662,7 @@ def _parse_uptime(date_str: str, time_str: str) -> int:
         return 0
     try:
         from datetime import datetime
+
         combined = f"{date_str} {time_str}"
         startup = datetime.strptime(combined, "%Y-%m-%d %H:%M:%S")
         delta = datetime.now() - startup
