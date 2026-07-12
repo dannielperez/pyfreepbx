@@ -1,21 +1,22 @@
-"""Queue service — config from GraphQL, live stats from AMI.
+"""Queue service backed by Asterisk AMI.
 
-GraphQL queries are PROVISIONAL (see extensions.py header for details).
-AMI actions (QueueSummary, QueueStatus, QueueAdd, QueueRemove) are
-well-documented and stable.
+FreePBX 16 exposes no queue fields in GraphQL. QueueSummary supplies inventory
+and QueueStatus supplies the members for each queue.
 """
 
 from __future__ import annotations
 
-import warnings
+import re
+from typing import TYPE_CHECKING
 
-from pyfreepbx.clients.ami import AMIClient
-from pyfreepbx.clients.freepbx import FreePBXClient
 from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.logging import get_logger
-from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
-from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberRemove
+
+if TYPE_CHECKING:
+    from pyfreepbx.clients.ami import AMIClient
+    from pyfreepbx.clients.freepbx import FreePBXClient
+    from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberRemove
 
 log = get_logger("services.queues")
 
@@ -23,8 +24,7 @@ log = get_logger("services.queues")
 class QueueService:
     """Operations on FreePBX call queues.
 
-    Config/inventory data comes from FreePBXClient (GraphQL).
-    Live operational data comes from AMIClient.
+    Inventory and live operational data come from AMIClient.
     """
 
     def __init__(self, client: FreePBXClient, ami: AMIClient | None = None) -> None:
@@ -32,47 +32,30 @@ class QueueService:
         self._ami = ami
 
     # ------------------------------------------------------------------
-    # Config queries (GraphQL)
+    # Inventory (AMI)
     # ------------------------------------------------------------------
 
     def list(self) -> list[Queue]:
-        """Fetch all queue configurations from GraphQL.
-
-        .. warning:: **Experimental** — the Queue module may not expose
-           GraphQL types in all FreePBX versions. This query is the least
-           likely to work out-of-the-box. Run a GraphQL introspection
-           query on your instance to verify.
-        """
-        warnings.warn(
-            "QueueService.list() uses a provisional GraphQL query. Queue "
-            "module GraphQL support is undocumented and may not exist.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        raw = self._client.fetch_all_queues()
-        queues = self._map_queues(raw)
-        log.debug("Listed %d queues", len(queues))
-        return queues
-
-    def list_result(self) -> InventoryListResult[Queue]:
-        """Fetch queue configurations with an authoritative-response signal."""
-        raw_result = self._client.fetch_all_queues_result()
-
-        queues = self._map_queues(raw_result.items)
-        log.debug("Listed %d queues", len(queues))
-        return InventoryListResult(items=queues, complete=raw_result.complete)
-
-    @staticmethod
-    def _map_queues(raw: list[dict[str, object]]) -> list[Queue]:
-        queues: list[Queue] = []
-        for item in raw:
-            queues.append(
-                Queue(
-                    queue_number=item.get("extension", item.get("queue_number", "")),
-                    name=item.get("name", ""),
-                    strategy=item.get("strategy"),
-                )
+        """Fetch queue inventory and members from AMI."""
+        self._require_ami("queue inventory")
+        assert self._ami is not None
+        summaries = self._ami.queue_summary()
+        members_by_queue: dict[str, list[QueueMember]] = {}
+        for event in self._ami.queue_status():
+            if event.get("Event") != "QueueMember":
+                continue
+            queue_number = event.get("Queue", "")
+            members_by_queue.setdefault(queue_number, []).append(self._member_from_event(event))
+        queues = [
+            Queue(
+                queue_number=summary.queue,
+                name=summary.queue,
+                members=members_by_queue.get(summary.queue, []),
             )
+            for summary in summaries
+        ]
+
+        log.debug("Listed %d queues", len(queues))
         return queues
 
     def get(self, queue_number: str) -> Queue:
@@ -128,13 +111,7 @@ class QueueService:
         for event in events:
             if event.get("Event") != "QueueMember":
                 continue
-            members.append(
-                QueueMember(
-                    extension=event.get("Name", event.get("StateInterface", "")),
-                    name=event.get("MemberName") or event.get("Name"),
-                    paused=event.get("Paused") == "1",
-                )
-            )
+            members.append(self._member_from_event(event))
 
         log.debug("Queue %s has %d live members", queue_number, len(members))
         return members
@@ -201,3 +178,17 @@ class QueueService:
                 f"AMI client is required for {operation}. "
                 "Configure AMI credentials to enable this feature."
             )
+
+    @staticmethod
+    def _member_extension(event: dict[str, str]) -> str:
+        interface = event.get("StateInterface") or event.get("Name", "")
+        match = re.search(r"(?:Local|PJSIP|SIP)/([^@/]+)", interface)
+        return match.group(1) if match else interface
+
+    @classmethod
+    def _member_from_event(cls, event: dict[str, str]) -> QueueMember:
+        return QueueMember(
+            extension=cls._member_extension(event),
+            name=event.get("MemberName") or event.get("Name"),
+            paused=event.get("Paused") == "1",
+        )

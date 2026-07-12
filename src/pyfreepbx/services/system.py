@@ -8,12 +8,35 @@ Health checks are provided by :class:`~pyfreepbx.services.health.HealthService`.
 
 from __future__ import annotations
 
-from pyfreepbx.clients.ami import AMIClient
-from pyfreepbx.clients.freepbx import FreePBXClient
+from typing import TYPE_CHECKING
+
 from pyfreepbx.logging import get_logger
-from pyfreepbx.models.system import SystemInfo
+from pyfreepbx.models.system import ApplyConfigResult, ConfigReloadStatus, SystemInfo
+
+if TYPE_CHECKING:
+    from pyfreepbx.clients.ami import AMIClient
+    from pyfreepbx.clients.freepbx import FreePBXClient
 
 log = get_logger("services.system")
+
+_FETCH_NEED_RELOAD = """\
+query FetchNeedReload {
+    fetchNeedReload {
+        status
+        message
+    }
+}
+"""
+
+_DO_RELOAD = """\
+mutation ApplyConfig($input: doreloadInput!) {
+    doreload(input: $input) {
+        status
+        message
+        transaction_id
+    }
+}
+"""
 
 
 class SystemService:
@@ -32,3 +55,22 @@ class SystemService:
             raise RuntimeError("AMI client is required for system info.")
 
         return self._ami.core_status()
+
+    def config_reload_status(self) -> ConfigReloadStatus:
+        """Return FreePBX's ``fetchNeedReload`` response."""
+        data = self._client.graphql.query(_FETCH_NEED_RELOAD)
+        return ConfigReloadStatus.model_validate(data.get("fetchNeedReload") or {})
+
+    def apply_config(self) -> ApplyConfigResult:
+        """Start FreePBX's asynchronous ``doreload`` apply-config operation.
+
+        This mutation is not safely retryable: a transport timeout can occur
+        after FreePBX accepts the reload but before it returns the transaction
+        id. Callers must surface that outcome as indeterminate rather than
+        automatically issuing another reload.
+        """
+        data = self._client.graphql.mutation(
+            _DO_RELOAD,
+            {"input": {}},
+        )
+        return ApplyConfigResult.model_validate(data.get("doreload") or {})

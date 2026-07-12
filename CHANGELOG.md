@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `SystemService.config_reload_status()` and `apply_config()` — typed GraphQL support for FreePBX `fetchNeedReload` and asynchronous `doreload` configuration apply.
 - `docs/FIELD_LEARNINGS.md` — field notes for the SDK (auth precedence, the provisional-GraphQL don't-sweep-on-empty guard, the AMI `AMI_IDLE` idle sentinel, the `originate` 30 s default that consumers pin shorter, `linkedid` call correlation, URL parsing). Each note tagged `[CONTRACT]`/`[PROVISIONAL]`/`[CONSUMER]` by validation status.
 - `tests/test_integration_patterns.py` — a 42-test regression net over the public surface a consumer depends on (exports, exception hierarchy, facade construction + URL parsing, config contract, consumed service-method presence across extensions/queues/firewall/health/diagnostics, the AMI event-parsing contract, and `StatusResult` shape). No live FreePBX/socket required.
 - `AMIEventListener` — synchronous AMI event listener (connect/login, reconnect/backoff, optional noise filter) yielding typed events; reuses the `AMIClient` socket transport. Stateless: no call-session state or ActionID->Uniqueid map (consumer-owned).
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- Removed the nonexistent `/rest/cdr` fallback and `/rest/asterisk/logs` diagnostics path; CDR now uses the verified `fetchAllCdrs` GraphQL operation exclusively and propagates failures.
 - Added `hatch-vcs` `fallback-version = "0.0.0"` for Docker builds without VCS metadata.
 - Removed hardcoded example host from `.env.example`.
 

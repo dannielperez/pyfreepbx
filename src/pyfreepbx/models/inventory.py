@@ -20,4 +20,3 @@ class InventoryListResult(Generic[T]):
 
     items: list[T]
     complete: bool
-
