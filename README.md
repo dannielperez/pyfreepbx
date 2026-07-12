@@ -167,10 +167,12 @@ pbx.queues.list()              # → list[Queue]        ⚠ provisional query
 pbx.queues.get("400")          # → Queue              ⚠ provisional query
 ```
 
-### System (stable, AMI)
+### System (AMI and GraphQL)
 
 ```python
-pbx.system.info()       # → SystemInfo (AMI CoreStatus)
+pbx.system.info()                  # → SystemInfo (AMI CoreStatus)
+pbx.system.config_reload_status()  # → ConfigReloadStatus (GraphQL)
+pbx.system.apply_config()          # → ApplyConfigResult (GraphQL, async transaction)
 ```
 
 ### Extensions (experimental, GraphQL)

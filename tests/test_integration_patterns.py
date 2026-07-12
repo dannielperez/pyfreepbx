@@ -225,9 +225,11 @@ class TestServiceMethodSurface:
             ("queues", "add_member_runtime"),
             # freepbx.py adapter — diagnostics surface
             ("diagnostics", "cdr"),
-            ("diagnostics", "asterisk_logs"),
             ("diagnostics", "asterisk_summary"),
             ("diagnostics", "endpoint_details"),
+            # config reload lifecycle (GraphQL)
+            ("system", "config_reload_status"),
+            ("system", "apply_config"),
         ],
     )
     def test_consumed_methods_exist(self, pbx: FreePBX, service: str, method: str) -> None:

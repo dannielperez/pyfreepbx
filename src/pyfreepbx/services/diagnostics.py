@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from pyfreepbx.clients.ami import AMIClient
-from pyfreepbx.clients.freepbx import FreePBXClient
-from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
 from pyfreepbx.models.device import DeviceState
-from pyfreepbx.models.logs import AsteriskLogLine, AsteriskLogResult
 
 log = get_logger("services.diagnostics")
+
+if TYPE_CHECKING:
+    from pyfreepbx.clients.ami import AMIClient
+    from pyfreepbx.clients.freepbx import FreePBXClient
 
 # FreePBX 16+ exposes CDR through the api module's GraphQL schema; the REST
 # /cdr resource this service originally targeted does not exist there (every
@@ -63,11 +63,9 @@ class DiagnosticsService:
 
     def __init__(
         self,
-        rest: RestClient | None = None,
         ami: AMIClient | None = None,
         client: FreePBXClient | None = None,
     ) -> None:
-        self._rest = rest
         self._ami = ami
         self._client = client
 
@@ -81,43 +79,20 @@ class DiagnosticsService:
     ) -> CDRListResult:
         """Fetch and normalize CDR rows.
 
-        GraphQL (``fetchAllCdrs``) is the primary path — it is what FreePBX 16
-        actually serves. The legacy REST ``/cdr`` resource is kept as a
-        fallback for deployments whose api module predates the GraphQL schema.
+        FreePBX 16 serves CDR through GraphQL ``fetchAllCdrs``. The previously
+        assumed REST ``/cdr`` resource does not exist and is intentionally not
+        retried as a fallback.
         """
-        if self._rest is None and self._client is None:
-            raise RuntimeError("A GraphQL or REST client is required for CDR queries")
+        if self._client is None:
+            raise RuntimeError("A GraphQL client is required for CDR queries")
 
         bounded_limit = max(1, min(limit, self._HARD_LIMIT))
 
-        if self._client is not None:
-            try:
-                return self._cdr_via_graphql(
-                    extension=extension,
-                    date_from=date_from,
-                    date_to=date_to,
-                    limit=bounded_limit,
-                )
-            except Exception as exc:
-                if self._rest is None:
-                    raise
-                log.warning("GraphQL CDR fetch failed (%s); falling back to REST.", exc)
-
-        params: dict[str, Any] = {"limit": bounded_limit}
-        if extension:
-            params["extension"] = extension
-        if date_from:
-            params["date_from"] = date_from
-        if date_to:
-            params["date_to"] = date_to
-
-        payload = self._rest.get("cdr", params=params)
-        rows = _extract_rows(payload)
-        items = [_to_cdr_item(row) for row in rows[:bounded_limit]]
-        return CDRListResult(
-            items=items,
-            total=len(rows),
-            truncated=len(rows) > bounded_limit,
+        return self._cdr_via_graphql(
+            extension=extension,
+            date_from=date_from,
+            date_to=date_to,
+            limit=bounded_limit,
         )
 
     def _cdr_via_graphql(
@@ -141,7 +116,10 @@ class DiagnosticsService:
         if end:
             variables["endDate"] = end
 
-        data = self._client.graphql.query(_CDR_GQL_QUERY, variables)
+        client = self._client
+        if client is None:  # private helper guard for static type safety
+            raise RuntimeError("A GraphQL client is required for CDR queries")
+        data = client.graphql.query(_CDR_GQL_QUERY, variables)
         connection = data.get("fetchAllCdrs") or {}
         rows = [row for row in (connection.get("cdrs") or []) if isinstance(row, dict)]
 
@@ -165,40 +143,6 @@ class DiagnosticsService:
             items=items,
             total=total,
             truncated=total > len(items),
-        )
-
-    def asterisk_logs(
-        self,
-        *,
-        extension: str = "",
-        date_from: str = "",
-        date_to: str = "",
-        limit: int = 200,
-    ) -> AsteriskLogResult:
-        """Fetch and normalize Asterisk logs from FreePBX REST API.
-
-        Expected backend endpoint: /rest/asterisk/logs
-        Falls back to parsing raw list/string payloads.
-        """
-        if self._rest is None:
-            raise RuntimeError("REST client is required for log queries")
-
-        bounded_limit = max(1, min(limit, self._HARD_LIMIT))
-        params: dict[str, Any] = {"limit": bounded_limit}
-        if extension:
-            params["extension"] = extension
-        if date_from:
-            params["date_from"] = date_from
-        if date_to:
-            params["date_to"] = date_to
-
-        payload = self._rest.get("asterisk/logs", params=params)
-        rows = _extract_rows(payload)
-        lines = [_to_log_line(row) for row in rows[:bounded_limit]]
-        return AsteriskLogResult(
-            lines=lines,
-            total=len(rows),
-            truncated=len(rows) > bounded_limit,
         )
 
     def endpoint_details(self, extension: str) -> dict[str, Any]:
@@ -261,31 +205,12 @@ class DiagnosticsService:
         )
 
 
-def _extract_rows(payload: Any) -> list[Any]:
-    """Normalize list-ish payloads from REST into a list of rows."""
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict):
-        for key in ("items", "rows", "data", "logs", "cdr", "records"):
-            value = payload.get(key)
-            if isinstance(value, list):
-                return value
-    if isinstance(payload, str):
-        lines = [line for line in payload.splitlines() if line.strip()]
-        return [{"raw": line} for line in lines]
-    return []
-
-
 def _to_cdr_item(row: Any) -> CallDetailRecord:
     if not isinstance(row, dict):
         row = {"raw": row}
 
     timestamp = _parse_datetime(
-        row.get("calldate")
-        or row.get("timestamp")
-        or row.get("time")
-        or row.get("start")
-        or ""
+        row.get("calldate") or row.get("timestamp") or row.get("time") or row.get("start") or ""
     )
 
     return CallDetailRecord(
@@ -318,24 +243,6 @@ def _to_cdr_gql_date(value: str) -> str:
     except ValueError:
         return text
     return parsed.strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _to_log_line(row: Any) -> AsteriskLogLine:
-    if isinstance(row, str):
-        return AsteriskLogLine(raw=row, message=row)
-    if not isinstance(row, dict):
-        row = {"raw": str(row)}
-
-    raw = str(row.get("raw") or row.get("line") or row.get("message") or "")
-    timestamp = _parse_datetime(str(row.get("timestamp") or row.get("time") or ""))
-    level = str(row.get("level") or "")
-    message = str(row.get("message") or raw)
-    return AsteriskLogLine(
-        timestamp=timestamp,
-        level=level,
-        message=message,
-        raw=raw or message,
-    )
 
 
 def _parse_datetime(value: str) -> datetime | None:

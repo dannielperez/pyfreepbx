@@ -114,7 +114,6 @@ class FreePBX:
         self._health = HealthService(self._client, self._ami_client)
         self._firewall = FirewallService(self._client)
         self._diagnostics = DiagnosticsService(
-            self._rest_client,
             self._ami_client,
             client=self._client,
         )

@@ -31,3 +31,18 @@ class SystemInfo(BaseModel):
     reload_seconds: int = 0
     active_channels: int = 0  # Not in CoreStatus — requires CoreShowChannels
     active_calls: int = 0
+
+
+class ConfigReloadStatus(BaseModel):
+    """FreePBX response describing whether configuration needs a reload."""
+
+    status: bool
+    message: str = ""
+
+
+class ApplyConfigResult(BaseModel):
+    """Result returned when FreePBX starts an asynchronous config reload."""
+
+    status: bool
+    message: str = ""
+    transaction_id: str = ""
