@@ -19,6 +19,7 @@ from typing import Any
 from pyfreepbx.clients.graphql import GraphQLClient
 from pyfreepbx.config import FreePBXConfig
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.inventory import InventoryListResult
 
 log = get_logger("clients.freepbx")
 
@@ -181,11 +182,29 @@ class FreePBXClient:
         depend on your FreePBX version — the service layer normalises
         these into typed models.
         """
+        return self.fetch_all_extensions_result().items
+
+    def fetch_all_extensions_result(self) -> InventoryListResult[dict[str, Any]]:
+        """Fetch extensions and report whether the response is authoritative."""
         data = self._gql.query(FETCH_ALL_EXTENSIONS)
-        result = data.get("fetchAllExtensions", {})
-        raw = result.get("extension") or result.get("extensions") or []
-        log.debug("Fetched %d raw extensions", len(raw))
-        return [item.get("user", item) for item in raw]
+        result = data.get("fetchAllExtensions")
+        if not isinstance(result, dict):
+            return InventoryListResult(items=[], complete=False)
+        collection_key = next(
+            (key for key in ("extension", "extensions") if key in result),
+            None,
+        )
+        raw_value = result.get(collection_key) if collection_key else None
+        raw = raw_value if isinstance(raw_value, list) else []
+        items = [item.get("user", item) for item in raw if isinstance(item, dict)]
+        complete = (
+            result.get("status") is True
+            and collection_key is not None
+            and isinstance(raw_value, list)
+            and len(items) == len(raw)
+        )
+        log.debug("Fetched %d raw extensions (complete=%s)", len(items), complete)
+        return InventoryListResult(items=items, complete=complete)
 
     def fetch_extension(self, extension_id: str) -> dict[str, Any] | None:
         """Fetch a single extension by number. Returns None if not found.
@@ -227,11 +246,24 @@ class FreePBXClient:
             stacklevel=2,
             category=UserWarning,
         )
+        return self.fetch_all_queues_result().items
+
+    def fetch_all_queues_result(self) -> InventoryListResult[dict[str, Any]]:
+        """Fetch queues and report whether the response is authoritative."""
         data = self._gql.query(FETCH_ALL_QUEUES)
-        result = data.get("fetchAllQueues", {})
-        raw = result.get("queues", [])
-        log.debug("Fetched %d raw queues", len(raw))
-        return raw
+        result = data.get("fetchAllQueues")
+        if not isinstance(result, dict):
+            return InventoryListResult(items=[], complete=False)
+        raw_value = result.get("queues")
+        raw = raw_value if isinstance(raw_value, list) else []
+        items = [item for item in raw if isinstance(item, dict)]
+        complete = (
+            result.get("status") is True
+            and isinstance(raw_value, list)
+            and len(items) == len(raw)
+        )
+        log.debug("Fetched %d raw queues (complete=%s)", len(items), complete)
+        return InventoryListResult(items=items, complete=complete)
 
     # ------------------------------------------------------------------
     # Firewall
@@ -242,11 +274,24 @@ class FreePBXClient:
 
         .. warning:: **Experimental** — provisional GraphQL query.
         """
+        return self.fetch_all_networks_result().items
+
+    def fetch_all_networks_result(self) -> InventoryListResult[dict[str, Any]]:
+        """Fetch firewall networks and report response completeness."""
         data = self._gql.query(FETCH_ALL_NETWORKS)
-        result = data.get("fetchAllFirewallNetworks", {})
-        raw = result.get("networks", [])
-        log.debug("Fetched %d firewall networks", len(raw))
-        return raw
+        result = data.get("fetchAllFirewallNetworks")
+        if not isinstance(result, dict):
+            return InventoryListResult(items=[], complete=False)
+        raw_value = result.get("networks")
+        raw = raw_value if isinstance(raw_value, list) else []
+        items = [item for item in raw if isinstance(item, dict)]
+        complete = (
+            result.get("status") is True
+            and isinstance(raw_value, list)
+            and len(items) == len(raw)
+        )
+        log.debug("Fetched %d firewall networks (complete=%s)", len(items), complete)
+        return InventoryListResult(items=items, complete=complete)
 
     def fetch_network(self, network_cidr: str) -> dict[str, Any] | None:
         """Fetch a single firewall network by CIDR."""

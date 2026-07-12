@@ -18,6 +18,7 @@ from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
+from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
 
@@ -49,6 +50,13 @@ class ExtensionService:
         extensions = [Extension.model_validate(item) for item in raw]
         log.debug("Listed %d extensions", len(extensions))
         return extensions
+
+    def list_result(self) -> InventoryListResult[Extension]:
+        """Fetch extensions with an authoritative-response signal."""
+        raw_result = self._client.fetch_all_extensions_result()
+        extensions = [Extension.model_validate(item) for item in raw_result.items]
+        log.debug("Listed %d extensions", len(extensions))
+        return InventoryListResult(items=extensions, complete=raw_result.complete)
 
     def get(self, extension_id: str) -> Extension:
         """Fetch a single extension by number.
