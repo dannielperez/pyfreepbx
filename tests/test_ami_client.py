@@ -35,9 +35,11 @@ def _make_connected(client: AMIClient) -> MagicMock:
 
 class TestConnection:
     def test_connect_failure(self, client: AMIClient) -> None:
-        with patch("socket.create_connection", side_effect=OSError("refused")):
-            with pytest.raises(AMIConnectionError, match="refused"):
-                client.connect()
+        with (
+            patch("socket.create_connection", side_effect=OSError("refused")),
+            pytest.raises(AMIConnectionError, match="refused"),
+        ):
+            client.connect()
         assert not client.connected
 
     def test_connect_reads_banner(self, client: AMIClient) -> None:
@@ -50,11 +52,41 @@ class TestConnection:
         assert client.banner == banner
         assert not client.authenticated
 
+    def test_connect_banner_failure_invalidates_session(self, client: AMIClient) -> None:
+        mock_sock = MagicMock(spec=socket.socket)
+        mock_sock.recv.return_value = b""
+        with (
+            patch("socket.create_connection", return_value=mock_sock),
+            pytest.raises(AMIConnectionError, match="closed by remote host"),
+        ):
+            client.connect()
+
+        mock_sock.close.assert_called_once_with()
+        assert not client.connected
+        assert not client.authenticated
+
     def test_disconnect_idempotent(self, client: AMIClient) -> None:
         # Disconnecting when not connected should not raise
         client.disconnect()
         client.disconnect()
         assert not client.connected
+
+    def test_reconnect_replaces_and_authenticates_session(self, client: AMIClient) -> None:
+        old_sock = _make_connected(client)
+        old_sock.recv.return_value = b""  # session dropped before reconnect
+        new_sock = MagicMock(spec=socket.socket)
+        new_sock.recv.side_effect = [
+            b"Asterisk Call Manager/6.0.0\r\n",
+            b"Response: Success\r\nMessage: Authentication accepted\r\n\r\n",
+        ]
+
+        with patch("socket.create_connection", return_value=new_sock):
+            response = client.reconnect()
+
+        old_sock.close.assert_called_once_with()
+        assert response["Response"] == "Success"
+        assert client.connected
+        assert client.authenticated
 
 
 class TestLogin:
@@ -62,11 +94,7 @@ class TestLogin:
         mock_sock = _make_connected(client)
         client._authenticated = False  # not yet
 
-        response_bytes = (
-            b"Response: Success\r\n"
-            b"Message: Authentication accepted\r\n"
-            b"\r\n"
-        )
+        response_bytes = b"Response: Success\r\nMessage: Authentication accepted\r\n\r\n"
         mock_sock.recv.return_value = response_bytes
 
         result = client.login()
@@ -77,11 +105,7 @@ class TestLogin:
         mock_sock = _make_connected(client)
         client._authenticated = False
 
-        response_bytes = (
-            b"Response: Error\r\n"
-            b"Message: Authentication failed\r\n"
-            b"\r\n"
-        )
+        response_bytes = b"Response: Error\r\nMessage: Authentication failed\r\n\r\n"
         mock_sock.recv.return_value = response_bytes
 
         with pytest.raises(AMIAuthError, match="Authentication failed"):
@@ -136,10 +160,7 @@ class TestTypedQueries:
         """When AMI doesn't return date fields, uptime defaults to 0."""
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (
-            b"Response: Success\r\n"
-            b"CoreVersion: 18.17.0\r\n"
-            b"CoreCurrentCalls: 0\r\n"
-            b"\r\n"
+            b"Response: Success\r\nCoreVersion: 18.17.0\r\nCoreCurrentCalls: 0\r\n\r\n"
         )
 
         info = client.core_status()
@@ -150,7 +171,8 @@ class TestTypedQueries:
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (
             b"Response: Success\r\n\r\n"
-            b"Event: QueueSummary\r\nQueue: support\r\nLoggedIn: 3\r\nAvailable: 2\r\nCallers: 1\r\n\r\n"
+            b"Event: QueueSummary\r\nQueue: support\r\nLoggedIn: 3\r\n"
+            b"Available: 2\r\nCallers: 1\r\n\r\n"
             b"Event: QueueSummaryComplete\r\nEventList: Complete\r\n\r\n"
         )
 
@@ -180,7 +202,8 @@ class TestTypedQueries:
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (
             b"Response: Success\r\n\r\n"
-            b"Event: EndpointList\r\nObjectName: 1001\r\nDeviceState: Not in use\r\nUserAgent: Yealink T46U\r\n\r\n"
+            b"Event: EndpointList\r\nObjectName: 1001\r\n"
+            b"DeviceState: Not in use\r\nUserAgent: Yealink T46U\r\n\r\n"
             b"Event: EndpointList\r\nObjectName: 1002\r\nDeviceState: Unavailable\r\n\r\n"
             b"Event: EndpointListComplete\r\nEventList: Complete\r\n\r\n"
         )
@@ -197,7 +220,8 @@ class TestTypedQueries:
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (
             b"Response: Success\r\n\r\n"
-            b"Event: PeerEntry\r\nObjectName: 2001\r\nStatus: OK (12 ms)\r\nIPaddress: 10.0.0.5\r\n\r\n"
+            b"Event: PeerEntry\r\nObjectName: 2001\r\nStatus: OK (12 ms)\r\n"
+            b"IPaddress: 10.0.0.5\r\n\r\n"
             b"Event: PeerEntry\r\nObjectName: 2002\r\nStatus: UNREACHABLE\r\n\r\n"
             b"Event: PeerlistComplete\r\nEventList: Complete\r\n\r\n"
         )
@@ -244,6 +268,111 @@ class TestRunAction:
         assert len(events) == 2
         assert events[0]["Queue"] == "support"
         assert events[1]["Queue"] == "sales"
+
+    def test_multi_event_action_is_bounded(self, config: AMIConfig) -> None:
+        config.max_events = 2
+        client = AMIClient(config)
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = (
+            b"Response: Success\r\n\r\n"
+            b"Event: QueueSummary\r\nQueue: one\r\n\r\n"
+            b"Event: QueueSummary\r\nQueue: two\r\n\r\n"
+            b"Event: QueueSummary\r\nQueue: three\r\n\r\n"
+        )
+
+        with pytest.raises(AMIError, match="2-event limit"):
+            client.run_action_with_events("QueueSummary")
+        assert not client.connected
+        with pytest.raises(AMIError, match="Not connected"):
+            client.run_action("Ping")
+
+    def test_command_is_not_allowlisted(
+        self, client: AMIClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Success\r\n\r\n"
+
+        client.run_action("Command", Command="core show version")
+
+        assert "Running non-allowlisted AMI action: Command" in caplog.text
+
+    def test_oversized_frame_invalidates_session(self) -> None:
+        config = AMIConfig(
+            host="ami.test",
+            username="admin",
+            secret="secret",
+            max_frame_bytes=16,
+        )
+        client = AMIClient(config)
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: " + (b"x" * 32)
+
+        with pytest.raises(AMIError, match="16-byte limit"):
+            client.run_action("Ping")
+        assert not client.connected
+
+    def test_action_transport_timeout_invalidates_without_replay(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.side_effect = TimeoutError("response timed out")
+
+        with pytest.raises(TimeoutError, match="response timed out"):
+            client.run_action("QueuePause", Queue="support", Interface="PJSIP/2001")
+
+        assert mock_sock.sendall.call_count == 1
+        assert not client.connected
+        assert not client.authenticated
+        with pytest.raises(AMIError, match="Not connected"):
+            client.run_action("Ping")
+
+    def test_multi_event_timeout_invalidates_session(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.side_effect = [
+            b"Response: Success\r\n\r\n",
+            TimeoutError("event stream timed out"),
+        ]
+
+        with pytest.raises(TimeoutError, match="event stream timed out"):
+            client.run_action_with_events("QueueSummary")
+
+        assert not client.connected
+        assert not client.authenticated
+
+
+class TestQueuePause:
+    def test_queue_pause_sends_typed_action(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Success\r\n\r\n"
+
+        client.queue_pause(
+            queue="support",
+            interface="PJSIP/2001",
+            paused=True,
+            reason="break",
+        )
+
+        sent = mock_sock.sendall.call_args[0][0].decode("utf-8")
+        assert sent.startswith("Action: QueuePause\r\n")
+        assert "Queue: support\r\n" in sent
+        assert "Interface: PJSIP/2001\r\n" in sent
+        assert "Paused: true\r\n" in sent
+        assert "Reason: break\r\n" in sent
+
+    def test_generic_queue_pause_is_not_allowlisted(
+        self, client: AMIClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Success\r\n\r\n"
+
+        client.run_action("QueuePause", Queue="support", Interface="PJSIP/2001")
+
+        assert "Running non-allowlisted AMI action: QueuePause" in caplog.text
+
+    def test_queue_pause_rejection_raises(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Error\r\nMessage: Member not found\r\n\r\n"
+
+        with pytest.raises(AMIError, match="Member not found"):
+            client.queue_pause(queue="support", interface="PJSIP/404", paused=False)
 
     def test_requires_auth(self, client: AMIClient) -> None:
         with pytest.raises(AMIError, match="Not connected"):
@@ -328,6 +457,7 @@ class TestStateHelpers:
 
     def test_parse_uptime_valid(self) -> None:
         from datetime import datetime, timedelta
+
         past = datetime.now() - timedelta(hours=2)
         date_str = past.strftime("%Y-%m-%d")
         time_str = past.strftime("%H:%M:%S")

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from pyfreepbx.config import AMIConfig, FreePBXConfig
@@ -67,3 +65,23 @@ class TestAMIConfig:
         cfg = AMIConfig(host="ami.local", username="admin", secret="pass")
         assert cfg.port == 5038
         assert cfg.timeout == 10.0
+        assert cfg.max_events == 10_000
+        assert cfg.max_frame_bytes == 1_048_576
+
+    def test_max_events_must_be_positive(self) -> None:
+        with pytest.raises(ValueError):
+            AMIConfig(
+                host="ami.local",
+                username="admin",
+                secret="pass",
+                max_events=0,
+            )
+
+    def test_max_frame_bytes_must_be_positive(self) -> None:
+        with pytest.raises(ValueError):
+            AMIConfig(
+                host="ami.local",
+                username="admin",
+                secret="pass",
+                max_frame_bytes=0,
+            )
