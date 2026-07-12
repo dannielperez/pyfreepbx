@@ -37,6 +37,7 @@ from pyfreepbx.services.extensions import ExtensionService
 from pyfreepbx.services.firewall import FirewallService
 from pyfreepbx.services.health import HealthService
 from pyfreepbx.services.queues import QueueService
+from pyfreepbx.services.recordings import RecordingService
 from pyfreepbx.services.system import SystemService
 
 if TYPE_CHECKING:
@@ -118,6 +119,7 @@ class FreePBX:
             self._ami_client,
             client=self._client,
         )
+        self._recordings = RecordingService(self._client)
 
         log.debug("FreePBX facade initialized for %s", host)
 
@@ -298,6 +300,10 @@ class FreePBX:
     @property
     def diagnostics(self) -> DiagnosticsService:
         return self._diagnostics
+
+    @property
+    def recordings(self) -> RecordingService:
+        return self._recordings
 
     @property
     def rest(self) -> RestClient:

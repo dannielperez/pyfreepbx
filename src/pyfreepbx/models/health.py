@@ -53,6 +53,25 @@ class EndpointSummary(BaseModel):
     unknown: int = 0
 
 
+class DiskSpace(BaseModel):
+    """One filesystem row from the FreePBX Dashboard module."""
+
+    id: str
+    storage_path: str = ""
+    available_space: str = ""
+    used_space: str = ""
+    total_size: str = ""
+    used_percentage: str = ""
+
+
+class AsteriskDetails(BaseModel):
+    """Asterisk and AMI status reported by the FreePBX System query."""
+
+    running_status: str = ""
+    version: str = ""
+    ami_status: str = ""
+
+
 class StatusResult(BaseModel):
     """Combined status snapshot from a FreePBX instance.
 
