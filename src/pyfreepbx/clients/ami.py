@@ -14,18 +14,20 @@ Reference: https://docs.asterisk.org/Configuration/Interfaces/Asterisk-Manager-I
 Design Notes
 ~~~~~~~~~~~~
 AMI exposes powerful administrative capabilities (Originate, Redirect,
-Hangup, ModuleLoad, etc.). This client intentionally restricts the
-public surface to **read-only and low-risk actions**. Dangerous actions
-are only available through ``run_action()`` which requires explicit
-opt-in by the caller.
+Hangup, ModuleLoad, etc.). This client distinguishes read-only/low-risk
+actions from explicit typed mutations. Consumer services own permission,
+approval, and audit policy for typed mutations and generic actions.
 
-Actions exposed as typed methods (safe for any consumer):
+Read-only and low-risk actions:
     Ping, CoreStatus, CoreSettings, CoreShowChannels,
     SIPpeers, SIPshowpeer, PJSIPShowEndpoints, PJSIPShowEndpoint,
     QueueSummary, QueueStatus, QueueAdd, QueueRemove
 
+Typed mutations requiring consumer policy:
+    Originate, QueuePause
+
 Actions that should remain in *service* layer logic (not raw client):
-    Originate, Redirect, Hangup, Bridge, ModuleLoad/Unload,
+    Redirect, Hangup, Bridge, ModuleLoad/Unload,
     Reload (selective), DBPut/DBGet/DBDel, MailboxCount,
     IAXpeers, ConfbridgeList
 """
@@ -71,7 +73,6 @@ _SAFE_ACTIONS: frozenset[str] = frozenset(
         "QueueStatus",
         "QueueAdd",
         "QueueRemove",
-        "QueuePause",
     }
 )
 
@@ -146,10 +147,13 @@ class AMIClient(BaseClient):
 
         self._sock = sock
         self._buffer = ""
+        try:
+            self._banner = self._read_line()
+        except (AMIError, OSError):
+            self._invalidate_session()
+            raise
         self._connected = True
         self._authenticated = False
-
-        self._banner = self._read_line()
         log.info("AMI connected: %s", self._banner)
         return self._banner
 
@@ -196,15 +200,10 @@ class AMIClient(BaseClient):
 
         Safe to call multiple times or when not connected.
         """
-        if self._sock is not None:
-            if self._authenticated:
-                with suppress(AMIError, OSError):
-                    self._send_action("Logoff")
-            with suppress(OSError):
-                self._sock.close()
-            self._sock = None
-        self._connected = False
-        self._authenticated = False
+        if self._sock is not None and self._authenticated:
+            with suppress(AMIError, OSError):
+                self._send_action("Logoff")
+        self._invalidate_session()
         log.debug("AMI disconnected")
 
     def close(self) -> None:
@@ -552,8 +551,12 @@ class AMIClient(BaseClient):
         message = _CRLF.join(lines) + _END
 
         log.debug(">>> %s (%d params)", action, len(params))
-        self._sock.sendall(message.encode("utf-8"))
-        return self._read_response()
+        try:
+            self._sock.sendall(message.encode("utf-8"))
+            return self._read_response()
+        except (AMIConnectionError, OSError):
+            self._invalidate_session()
+            raise
 
     def _collect_events(self, action: str, **params: Any) -> list[dict[str, str]]:
         """Send an action and collect events until the *Complete marker."""
@@ -563,17 +566,22 @@ class AMIClient(BaseClient):
             raise AMIError(msg)
 
         events: list[dict[str, str]] = []
-        while True:
-            event = self._read_response()
-            event_name = event.get("Event", "")
-            if event_name.endswith("Complete"):
-                break
-            if len(events) >= self._config.max_events:
-                raise AMIError(
-                    f"{action} exceeded the {self._config.max_events}-event limit "
-                    "without a completion marker"
-                )
-            events.append(event)
+        try:
+            while True:
+                event = self._read_response()
+                event_name = event.get("Event", "")
+                if event_name.endswith("Complete"):
+                    break
+                if len(events) >= self._config.max_events:
+                    self._invalidate_session()
+                    raise AMIError(
+                        f"{action} exceeded the {self._config.max_events}-event limit "
+                        "without a completion marker"
+                    )
+                events.append(event)
+        except (AMIConnectionError, OSError):
+            self._invalidate_session()
+            raise
 
         log.debug("<<< %s returned %d events", action, len(events))
         return events
@@ -582,6 +590,7 @@ class AMIClient(BaseClient):
         """Read a single line from the AMI socket."""
         while _CRLF not in self._buffer:
             self._buffer += self._recv()
+            self._enforce_frame_bound("AMI banner line")
         line, self._buffer = self._buffer.split(_CRLF, 1)
         return line
 
@@ -613,6 +622,7 @@ class AMIClient(BaseClient):
         """Read a complete AMI response block (terminated by blank line)."""
         while _END not in self._buffer:
             self._buffer += self._recv()
+            self._enforce_frame_bound("AMI frame")
         block, self._buffer = self._buffer.split(_END, 1)
 
         result: dict[str, str] = {}
@@ -621,6 +631,23 @@ class AMIClient(BaseClient):
                 key, value = line.split(": ", 1)
                 result[key] = value
         return result
+
+    def _enforce_frame_bound(self, label: str) -> None:
+        if len(self._buffer.encode("utf-8")) <= self._config.max_frame_bytes:
+            return
+        limit = self._config.max_frame_bytes
+        self._invalidate_session()
+        raise AMIError(f"{label} exceeded the {limit}-byte limit")
+
+    def _invalidate_session(self) -> None:
+        """Close transport state without sending another protocol action."""
+        if self._sock is not None:
+            with suppress(OSError):
+                self._sock.close()
+        self._sock = None
+        self._buffer = ""
+        self._connected = False
+        self._authenticated = False
 
     def _recv(self) -> str:
         """Receive data from socket, raise on disconnect."""
