@@ -113,7 +113,11 @@ class FreePBX:
         self._system = SystemService(self._client, self._ami_client)
         self._health = HealthService(self._client, self._ami_client)
         self._firewall = FirewallService(self._client)
-        self._diagnostics = DiagnosticsService(self._rest_client, self._ami_client)
+        self._diagnostics = DiagnosticsService(
+            self._rest_client,
+            self._ami_client,
+            client=self._client,
+        )
 
         log.debug("FreePBX facade initialized for %s", host)
 
