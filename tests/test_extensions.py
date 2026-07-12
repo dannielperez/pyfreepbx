@@ -8,12 +8,26 @@ from unittest.mock import MagicMock
 import pytest
 
 from pyfreepbx.exceptions import NotFoundError
+from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
 from pyfreepbx.services.extensions import ExtensionService
 
 
 class TestExtensionService:
+    def test_list_result_preserves_completeness(
+        self, mock_freepbx_client: MagicMock
+    ) -> None:
+        mock_freepbx_client.fetch_all_extensions_result.return_value = InventoryListResult(
+            items=[{"extension": "1001", "name": "Alice"}],
+            complete=False,
+        )
+
+        result = ExtensionService(mock_freepbx_client).list_result()
+
+        assert [item.extension for item in result.items] == ["1001"]
+        assert result.complete is False
+
     def test_list_returns_extensions(self, mock_freepbx_client: MagicMock) -> None:
         mock_freepbx_client.fetch_all_extensions.return_value = [
             {"extension": "1001", "name": "Alice"},

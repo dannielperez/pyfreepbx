@@ -18,6 +18,7 @@ from pyfreepbx.clients.freepbx import FreePBXClient
 from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.firewall import FirewallNetwork
+from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.schemas.firewall_create import FirewallNetworkCreate
 from pyfreepbx.schemas.firewall_update import FirewallNetworkUpdate
 
@@ -76,6 +77,13 @@ class FirewallService:
         networks = [FirewallNetwork.model_validate(item) for item in raw]
         log.debug("Listed %d firewall networks", len(networks))
         return networks
+
+    def list_networks_result(self) -> InventoryListResult[FirewallNetwork]:
+        """Fetch firewall networks with an authoritative-response signal."""
+        raw_result = self._client.fetch_all_networks_result()
+        networks = [FirewallNetwork.model_validate(item) for item in raw_result.items]
+        log.debug("Listed %d firewall networks", len(networks))
+        return InventoryListResult(items=networks, complete=raw_result.complete)
 
     def get_network(self, network_cidr: str) -> FirewallNetwork:
         """Fetch a single network definition by CIDR.

@@ -13,6 +13,7 @@ from pyfreepbx.clients.ami import AMIClient
 from pyfreepbx.clients.freepbx import FreePBXClient
 from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
 from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberRemove
 
@@ -49,7 +50,20 @@ class QueueService:
             category=UserWarning,
         )
         raw = self._client.fetch_all_queues()
+        queues = self._map_queues(raw)
+        log.debug("Listed %d queues", len(queues))
+        return queues
 
+    def list_result(self) -> InventoryListResult[Queue]:
+        """Fetch queue configurations with an authoritative-response signal."""
+        raw_result = self._client.fetch_all_queues_result()
+
+        queues = self._map_queues(raw_result.items)
+        log.debug("Listed %d queues", len(queues))
+        return InventoryListResult(items=queues, complete=raw_result.complete)
+
+    @staticmethod
+    def _map_queues(raw: list[dict[str, object]]) -> list[Queue]:
         queues: list[Queue] = []
         for item in raw:
             queues.append(
@@ -59,8 +73,6 @@ class QueueService:
                     strategy=item.get("strategy"),
                 )
             )
-
-        log.debug("Listed %d queues", len(queues))
         return queues
 
     def get(self, queue_number: str) -> Queue:
