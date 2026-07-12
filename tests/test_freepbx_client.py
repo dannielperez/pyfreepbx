@@ -78,3 +78,47 @@ class TestFetchAllExtensions:
         )
         client = FreePBXClient(config)
         assert client.fetch_all_extensions() == []
+
+
+class TestFetchFirewallConfiguration:
+    @respx.mock
+    def test_parses_live_configuration_key(self, config: FreePBXConfig) -> None:
+        configuration = {
+            "status": True,
+            "responsiveFirewall": True,
+            "chainSip": True,
+            "pjSip": True,
+            "safemode": "disabled",
+            "currentJiffies": "1000",
+            "provision": ["external", "other"],
+        }
+        respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "fetchFirewallConfiguration": {
+                            "status": True,
+                            "message": "List of firewall configurations",
+                            "configurations": [configuration],
+                        }
+                    }
+                },
+            )
+        )
+
+        client = FreePBXClient(config)
+        assert client.fetch_firewall_configuration() == [configuration]
+
+    @respx.mock
+    def test_missing_configuration_is_not_silent_empty(self, config: FreePBXConfig) -> None:
+        respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": {"fetchFirewallConfiguration": {"status": False}}},
+            )
+        )
+
+        client = FreePBXClient(config)
+        with pytest.raises(ValueError, match="omitted firewall configurations"):
+            client.fetch_firewall_configuration()
