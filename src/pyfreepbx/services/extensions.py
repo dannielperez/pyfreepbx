@@ -1,26 +1,25 @@
 """Extension service — CRUD operations on FreePBX extensions.
 
-Read operations (list, get) use the FreePBXClient to query the GraphQL API.
-Write operations (create, update, update_secret) use the REST API.
+Read and write operations use the FreePBX GraphQL API.
 
-``list()`` is validated against a live FreePBX instance (2026-07).
-
-.. warning:: ``get()`` remains **experimental** — its GraphQL query has not
-   been validated against a live FreePBX instance.
+The extension queries and mutations are validated against a live FreePBX
+instance (2026-07).
 """
 
 from __future__ import annotations
 
-import warnings
+from typing import TYPE_CHECKING
 
-from pyfreepbx.clients.freepbx import FreePBXClient
-from pyfreepbx.clients.rest import RestClient
-from pyfreepbx.exceptions import NotFoundError
+from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
 from pyfreepbx.models.inventory import InventoryListResult
-from pyfreepbx.schemas.extension_create import ExtensionCreate
-from pyfreepbx.schemas.extension_update import ExtensionUpdate
+
+if TYPE_CHECKING:
+    from pyfreepbx.clients.freepbx import FreePBXClient
+    from pyfreepbx.clients.rest import RestClient
+    from pyfreepbx.schemas.extension_create import ExtensionCreate
+    from pyfreepbx.schemas.extension_update import ExtensionUpdate
 
 log = get_logger("services.extensions")
 
@@ -61,51 +60,30 @@ class ExtensionService:
     def get(self, extension_id: str) -> Extension:
         """Fetch a single extension by number.
 
-        .. warning:: **Experimental** — see :meth:`list` for GraphQL caveats.
-
         Raises:
             NotFoundError: If the extension does not exist.
         """
-        warnings.warn(
-            "ExtensionService.get() uses a provisional GraphQL query that "
-            "has not been validated against a live FreePBX instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
         raw = self._client.fetch_extension(extension_id)
         if raw is None:
             raise NotFoundError(f"Extension {extension_id!r} not found")
         return Extension.model_validate(raw)
 
     def create(self, payload: ExtensionCreate) -> Extension:
-        """Create a new extension via the FreePBX REST API.
+        """Create a new extension via the FreePBX GraphQL API.
 
         Raises:
             FreePBXValidationError: If the server rejects the payload.
             FreePBXConflictError: If the extension number already exists.
             FreePBXTransportError: On network failure.
         """
-        if self._rest is None:
-            raise RuntimeError("REST client is required for write operations")
-
-        body = payload.model_dump(exclude_none=True)
-        log.info("Creating extension %s via REST", payload.extension)
-        result = self._rest.post("/extensions", json=body)
-
-        # REST response may vary; normalise into our Extension model
-        if isinstance(result, dict):
-            return Extension.model_validate(result)
-        # Fallback: return a model from the input payload
-        return Extension(
-            extension=payload.extension,
-            name=payload.name,
-            tech=payload.tech,
-            voicemail_enabled=payload.voicemail_enabled,
-            outbound_cid=payload.outbound_cid,
-        )
+        body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
+        log.info("Creating extension %s via GraphQL", payload.extension)
+        result = self._client.add_extension(body)
+        self._raise_for_failed_mutation("addExtension", result)
+        return self.get(payload.extension)
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
-        """Update an existing extension via the FreePBX REST API.
+        """Update an existing extension via the FreePBX GraphQL API.
 
         Only fields that are explicitly set in ``payload`` will be sent.
 
@@ -114,16 +92,12 @@ class ExtensionService:
             FreePBXValidationError: If the server rejects the payload.
             FreePBXTransportError: On network failure.
         """
-        if self._rest is None:
-            raise RuntimeError("REST client is required for write operations")
-
-        body = payload.to_variables()
-        log.info("Updating extension %s via REST: %s", extension_id, list(body.keys()))
-        result = self._rest.put(f"/extensions/{extension_id}", json=body)
-
-        if isinstance(result, dict):
-            return Extension.model_validate(result)
-        return Extension(extension=extension_id, name=body.get("name", ""))
+        body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
+        body["extensionId"] = extension_id
+        log.info("Updating extension %s via GraphQL: %s", extension_id, list(body.keys()))
+        result = self._client.update_extension(body)
+        self._raise_for_failed_mutation("updateExtension", result)
+        return self.get(extension_id)
 
     def update_secret(self, extension_id: str, new_secret: str) -> None:
         """Update only the SIP secret for an extension.
@@ -132,8 +106,25 @@ class ExtensionService:
             NotFoundError: If the extension does not exist.
             FreePBXTransportError: On network failure.
         """
-        if self._rest is None:
-            raise RuntimeError("REST client is required for write operations")
+        log.info("Rotating secret for extension %s via GraphQL", extension_id)
+        result = self._client.update_extension(
+            {"extensionId": extension_id, "extPassword": new_secret}
+        )
+        self._raise_for_failed_mutation("updateExtension", result)
 
-        log.info("Rotating secret for extension %s via REST", extension_id)
-        self._rest.put(f"/extensions/{extension_id}", json={"secret": new_secret})
+    @staticmethod
+    def _raise_for_failed_mutation(operation: str, result: dict[str, object]) -> None:
+        if result.get("status") is not True:
+            message = str(result.get("message") or f"{operation} failed")
+            raise FreePBXValidationError(message, details=result)
+
+
+def _to_graphql_input(body: dict[str, object]) -> dict[str, object]:
+    """Translate public snake_case schema fields to FreePBX GraphQL names."""
+    field_names = {
+        "extension": "extensionId",
+        "voicemail_enabled": "vmEnable",
+        "outbound_cid": "outboundCid",
+        "secret": "extPassword",
+    }
+    return {field_names.get(key, key): value for key, value in body.items()}

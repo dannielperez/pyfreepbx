@@ -16,14 +16,16 @@ from pyfreepbx.models.health import (
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.logs import AsteriskLogLine, AsteriskLogResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
-from pyfreepbx.models.system import SystemInfo
+from pyfreepbx.models.system import ApplyConfigResult, ConfigReloadStatus, SystemInfo
 
 __all__ = [
+    "ApplyConfigResult",
     "AsteriskLogLine",
     "AsteriskLogResult",
     "AsteriskSummary",
     "CDRListResult",
     "CallDetailRecord",
+    "ConfigReloadStatus",
     "Device",
     "DeviceState",
     "EndpointSummary",

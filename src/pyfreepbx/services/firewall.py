@@ -10,17 +10,19 @@ Read operations use ``FreePBXClient.fetch_all_networks()`` /
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING
 
-from pyfreepbx.clients.freepbx import FreePBXClient
-from pyfreepbx.exceptions import NotFoundError
+from pyfreepbx.exceptions import NotFoundError, NotSupportedError
 from pyfreepbx.logging import get_logger
-from pyfreepbx.models.firewall import FirewallNetwork
-from pyfreepbx.models.inventory import InventoryListResult
+from pyfreepbx.models.firewall_configuration import FirewallConfiguration
 from pyfreepbx.schemas.firewall_create import FirewallNetworkCreate
-from pyfreepbx.schemas.firewall_update import FirewallNetworkUpdate
+
+if TYPE_CHECKING:
+    from pyfreepbx.clients.freepbx import FreePBXClient
+    from pyfreepbx.models.firewall import FirewallNetwork
+    from pyfreepbx.schemas.firewall_update import FirewallNetworkUpdate
 
 log = get_logger("services.firewall")
 
@@ -63,27 +65,15 @@ class FirewallService:
         self._client = client
 
     def list_networks(self) -> list[FirewallNetwork]:
-        """Fetch all firewall network definitions.
+        """Network inventory is not exposed by the FreePBX 16 GraphQL schema."""
+        raise NotSupportedError("FreePBX 16 does not expose firewall network inventory")
 
-        .. warning:: **Experimental** — uses a provisional GraphQL query.
-        """
-        warnings.warn(
-            "FirewallService.list_networks() uses a provisional GraphQL query "
-            "that has not been validated against a live FreePBX instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        raw = self._client.fetch_all_networks()
-        networks = [FirewallNetwork.model_validate(item) for item in raw]
-        log.debug("Listed %d firewall networks", len(networks))
-        return networks
-
-    def list_networks_result(self) -> InventoryListResult[FirewallNetwork]:
-        """Fetch firewall networks with an authoritative-response signal."""
-        raw_result = self._client.fetch_all_networks_result()
-        networks = [FirewallNetwork.model_validate(item) for item in raw_result.items]
-        log.debug("Listed %d firewall networks", len(networks))
-        return InventoryListResult(items=networks, complete=raw_result.complete)
+    def configuration(self) -> FirewallConfiguration:
+        """Fetch the global firewall configuration supported by FreePBX 16."""
+        raw = self._client.fetch_firewall_configuration()
+        if len(raw) != 1:
+            raise ValueError(f"Expected one firewall configuration, received {len(raw)}")
+        return FirewallConfiguration.model_validate(raw[0])
 
     def get_network(self, network_cidr: str) -> FirewallNetwork:
         """Fetch a single network definition by CIDR.
@@ -91,31 +81,14 @@ class FirewallService:
         Raises:
             NotFoundError: If the network is not found.
         """
-        warnings.warn(
-            "FirewallService.get_network() uses a provisional GraphQL query "
-            "that has not been validated against a live FreePBX instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        raw = self._client.fetch_network(network_cidr)
-        if raw is None:
-            raise NotFoundError(f"Firewall network {network_cidr!r} not found")
-        return FirewallNetwork.model_validate(raw)
+        raise NotSupportedError("FreePBX 16 does not expose single firewall network reads")
 
     def create_network(self, payload: FirewallNetworkCreate) -> FirewallNetwork:
         """Create a new firewall network definition on the PBX.
 
         .. warning:: **Experimental** — uses a provisional GraphQL mutation.
         """
-        warnings.warn(
-            "FirewallService.create_network() uses a provisional GraphQL "
-            "mutation that has not been validated against a live instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        raw = self._client.create_network(payload.model_dump())
-        log.info("Created firewall network: %s", payload.network)
-        return FirewallNetwork.model_validate(raw)
+        raise NotSupportedError("FreePBX 16 does not expose an add-firewall-network mutation")
 
     def update_network(
         self,
@@ -126,16 +99,7 @@ class FirewallService:
 
         .. warning:: **Experimental** — uses a provisional GraphQL mutation.
         """
-        warnings.warn(
-            "FirewallService.update_network() uses a provisional GraphQL "
-            "mutation that has not been validated against a live instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        variables = payload.to_variables()
-        raw = self._client.update_network(network_cidr, variables)
-        log.info("Updated firewall network: %s", network_cidr)
-        return FirewallNetwork.model_validate(raw)
+        raise NotSupportedError("FreePBX 16 does not expose an update-firewall-network mutation")
 
     def delete_network(self, network_cidr: str) -> bool:
         """Remove a firewall network definition.
@@ -144,15 +108,7 @@ class FirewallService:
 
         .. warning:: **Experimental** — uses a provisional GraphQL mutation.
         """
-        warnings.warn(
-            "FirewallService.delete_network() uses a provisional GraphQL "
-            "mutation that has not been validated against a live instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        result = self._client.delete_network(network_cidr)
-        log.info("Deleted firewall network: %s", network_cidr)
-        return result
+        raise NotSupportedError("FreePBX 16 does not expose a remove-firewall-network mutation")
 
     def replace_network(
         self,

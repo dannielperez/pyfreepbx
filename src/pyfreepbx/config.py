@@ -30,7 +30,9 @@ class FreePBXConfig(BaseSettings):
     timeout: float = Field(default=30.0, description="HTTP request timeout in seconds")
     api_base_path: str = Field(
         default="/admin/api/api",
-        description="Base path for the FreePBX API (token, gql, rest, authorize endpoints live under this)",
+        description=(
+            "Base path for the FreePBX API (token, gql, rest, authorize endpoints live under this)"
+        ),
     )
 
     # OAuth2 credentials (preferred)
@@ -38,7 +40,10 @@ class FreePBXConfig(BaseSettings):
     client_secret: str = Field(default="", description="OAuth2 client secret")
 
     # Static token (legacy / backward-compatible)
-    api_token: str = Field(default="", description="Pre-obtained Bearer token (used when OAuth2 credentials are not set)")
+    api_token: str = Field(
+        default="",
+        description="Pre-obtained Bearer token (used when OAuth2 credentials are not set)",
+    )
 
     @property
     def base_url(self) -> str:
@@ -76,6 +81,16 @@ class AMIConfig(BaseSettings):
     username: str = Field(description="AMI login username")
     secret: str = Field(description="AMI login secret")
     timeout: float = Field(default=10.0, description="Socket timeout in seconds")
+    max_events: int = Field(
+        default=10_000,
+        gt=0,
+        description="Maximum frames accepted from one multi-event AMI action",
+    )
+    max_frame_bytes: int = Field(
+        default=1_048_576,
+        gt=0,
+        description="Maximum buffered bytes accepted for one AMI frame or banner line",
+    )
 
 
 class DBConfig(BaseSettings):
