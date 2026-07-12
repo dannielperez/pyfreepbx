@@ -14,11 +14,13 @@ See: https://wiki.freepbx.org/display/FPG/GraphQL+API
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.clients.graphql import GraphQLClient
-from pyfreepbx.config import FreePBXConfig
 from pyfreepbx.logging import get_logger
+
+if TYPE_CHECKING:
+    from pyfreepbx.config import FreePBXConfig
 
 log = get_logger("clients.freepbx")
 
@@ -56,92 +58,27 @@ query FetchExtension($extensionId: String!) {
 }
 """
 
-FETCH_ALL_QUEUES = """\
-query {
-    fetchAllQueues {
-        status
-        message
-        queues {
-            extension
-            name
-            strategy
-        }
-    }
-}
-"""
-
 # TODO: addExtension / updateExtension mutations — confirm names and
 # input types via introspection before implementing.
 
 # ---------------------------------------------------------------------------
-# Firewall queries / mutations (provisional)
+# Firewall queries (validated against FreePBX 16 / firewall 16.x)
 # ---------------------------------------------------------------------------
 
-FETCH_ALL_NETWORKS = """\
+FETCH_FIREWALL_CONFIGURATION = """\
 query {
-    fetchAllFirewallNetworks {
+    fetchFirewallConfiguration {
         status
         message
-        networks {
-            network
-            name
-            zone
-            enabled
+        configurations {
+            status
+            responsiveFirewall
+            chainSip
+            pjSip
+            safemode
+            currentJiffies
+            provision
         }
-    }
-}
-"""
-
-FETCH_NETWORK = """\
-query FetchNetwork($network: String!) {
-    fetchFirewallNetwork(network: $network) {
-        status
-        message
-        network {
-            network
-            name
-            zone
-            enabled
-        }
-    }
-}
-"""
-
-CREATE_NETWORK = """\
-mutation CreateNetwork($input: FirewallNetworkInput!) {
-    addFirewallNetwork(input: $input) {
-        status
-        message
-        network {
-            network
-            name
-            zone
-            enabled
-        }
-    }
-}
-"""
-
-UPDATE_NETWORK = """\
-mutation UpdateNetwork($network: String!, $input: FirewallNetworkInput!) {
-    updateFirewallNetwork(network: $network, input: $input) {
-        status
-        message
-        network {
-            network
-            name
-            zone
-            enabled
-        }
-    }
-}
-"""
-
-DELETE_NETWORK = """\
-mutation DeleteNetwork($network: String!) {
-    removeFirewallNetwork(network: $network) {
-        status
-        message
     }
 }
 """
@@ -193,6 +130,7 @@ class FreePBXClient:
         .. warning:: **Experimental** — see :meth:`fetch_all_extensions`.
         """
         import warnings
+
         warnings.warn(
             "fetch_extension uses a provisional GraphQL query that has "
             "not been validated against a live FreePBX instance.",
@@ -210,81 +148,18 @@ class FreePBXClient:
         return ext.get("user", ext)
 
     # ------------------------------------------------------------------
-    # Queues
-    # ------------------------------------------------------------------
-
-    def fetch_all_queues(self) -> list[dict[str, Any]]:
-        """Fetch all queue configurations.
-
-        .. warning:: **Experimental** — the Queue module may not expose
-           GraphQL types in all FreePBX versions. See
-           :meth:`fetch_all_extensions` for details.
-        """
-        import warnings
-        warnings.warn(
-            "fetch_all_queues uses a provisional GraphQL query. Queue module "
-            "GraphQL support is undocumented and may not exist on your instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
-        data = self._gql.query(FETCH_ALL_QUEUES)
-        result = data.get("fetchAllQueues", {})
-        raw = result.get("queues", [])
-        log.debug("Fetched %d raw queues", len(raw))
-        return raw
-
-    # ------------------------------------------------------------------
     # Firewall
     # ------------------------------------------------------------------
 
-    def fetch_all_networks(self) -> list[dict[str, Any]]:
-        """Fetch all firewall network definitions.
-
-        .. warning:: **Experimental** — provisional GraphQL query.
-        """
-        data = self._gql.query(FETCH_ALL_NETWORKS)
-        result = data.get("fetchAllFirewallNetworks", {})
-        raw = result.get("networks", [])
-        log.debug("Fetched %d firewall networks", len(raw))
+    def fetch_firewall_configuration(self) -> list[dict[str, Any]]:
+        """Fetch the supported FreePBX 16 firewall configuration payload."""
+        data = self._gql.query(FETCH_FIREWALL_CONFIGURATION)
+        result = data.get("fetchFirewallConfiguration", {})
+        raw = result.get("configurations")
+        if raw is None:
+            raise ValueError("FreePBX omitted firewall configurations from its response")
+        log.debug("Fetched %d firewall configurations", len(raw))
         return raw
-
-    def fetch_network(self, network_cidr: str) -> dict[str, Any] | None:
-        """Fetch a single firewall network by CIDR."""
-        data = self._gql.query(
-            FETCH_NETWORK,
-            variables={"network": network_cidr},
-        )
-        result = data.get("fetchFirewallNetwork", {})
-        return result.get("network")
-
-    def create_network(self, variables: dict[str, Any]) -> dict[str, Any]:
-        """Create a firewall network definition on the PBX."""
-        data = self._gql.query(
-            CREATE_NETWORK,
-            variables={"input": variables},
-        )
-        result = data.get("addFirewallNetwork", {})
-        return result.get("network", {})
-
-    def update_network(
-        self, network_cidr: str, variables: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Update a firewall network definition on the PBX."""
-        data = self._gql.query(
-            UPDATE_NETWORK,
-            variables={"network": network_cidr, "input": variables},
-        )
-        result = data.get("updateFirewallNetwork", {})
-        return result.get("network", {})
-
-    def delete_network(self, network_cidr: str) -> bool:
-        """Delete a firewall network definition from the PBX."""
-        data = self._gql.query(
-            DELETE_NETWORK,
-            variables={"network": network_cidr},
-        )
-        result = data.get("removeFirewallNetwork", {})
-        return result.get("status") == "true"
 
     # ------------------------------------------------------------------
     # Lifecycle
