@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-import warnings
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING
 
 import pytest
 
-from pyfreepbx.exceptions import NotFoundError
+from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
 from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
 from pyfreepbx.services.extensions import ExtensionService
+
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
 
 
 class TestExtensionService:
@@ -36,7 +38,8 @@ class TestExtensionService:
 
     def test_get_found(self, mock_freepbx_client: MagicMock) -> None:
         mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1001", "name": "Alice",
+            "extension": "1001",
+            "name": "Alice",
         }
 
         svc = ExtensionService(mock_freepbx_client)
@@ -51,44 +54,73 @@ class TestExtensionService:
         with pytest.raises(NotFoundError):
             svc.get("9999")
 
-    def test_create_requires_rest_client(self, mock_freepbx_client: MagicMock) -> None:
-        # write operations require a REST client; GraphQL-only construction cannot create
+    def test_create_uses_graphql_and_refetches(self, mock_freepbx_client: MagicMock) -> None:
+        mock_freepbx_client.add_extension.return_value = {
+            "status": True,
+            "message": "created",
+        }
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1050",
+            "name": "New User",
+        }
         svc = ExtensionService(mock_freepbx_client)
         payload = ExtensionCreate(extension="1050", name="New User")
-        with pytest.raises(RuntimeError, match="REST client is required"):
-            svc.create(payload)
+        result = svc.create(payload)
 
-    def test_update_requires_rest_client(self, mock_freepbx_client: MagicMock) -> None:
+        assert result.extension == "1050"
+        mock_freepbx_client.add_extension.assert_called_once_with(
+            {
+                "extensionId": "1050",
+                "name": "New User",
+                "tech": "pjsip",
+                "vmEnable": False,
+            }
+        )
+
+    def test_update_uses_graphql_without_fabricated_result(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.update_extension.return_value = {
+            "status": True,
+            "message": "updated",
+        }
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1001",
+            "name": "Updated Name",
+        }
         svc = ExtensionService(mock_freepbx_client)
         payload = ExtensionUpdate(name="Updated Name")
-        with pytest.raises(RuntimeError, match="REST client is required"):
-            svc.update("1001", payload)
+        result = svc.update("1001", payload)
 
+        assert result.name == "Updated Name"
+        mock_freepbx_client.update_extension.assert_called_once_with(
+            {"name": "Updated Name", "extensionId": "1001"}
+        )
 
-class TestExperimentalWarnings:
-    def test_list_emits_no_warning(self, mock_freepbx_client: MagicMock) -> None:
-        """list() is validated against a live FreePBX (2026-07) — the
-        provisional-query warning must be gone."""
-        mock_freepbx_client.fetch_all_extensions.return_value = []
-
-        svc = ExtensionService(mock_freepbx_client)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            svc.list()
-
-        user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
-        assert user_warnings == []
-
-    def test_get_emits_graphql_warning(self, mock_freepbx_client: MagicMock) -> None:
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1001", "name": "Alice",
+    def test_failed_create_is_not_reported_as_success(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {
+            "status": False,
+            "message": "Extension already exists",
         }
-
         svc = ExtensionService(mock_freepbx_client)
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            svc.get("1001")
 
-        user_warnings = [x for x in w if issubclass(x.category, UserWarning)]
-        assert len(user_warnings) >= 1
-        assert "provisional" in str(user_warnings[0].message).lower()
+        with pytest.raises(FreePBXValidationError, match="Extension already exists"):
+            svc.create(ExtensionCreate(extension="1050", name="Duplicate"))
+        mock_freepbx_client.fetch_extension.assert_not_called()
+
+    def test_update_secret_uses_ext_password(self, mock_freepbx_client: MagicMock) -> None:
+        mock_freepbx_client.update_extension.return_value = {
+            "status": True,
+            "message": "updated",
+        }
+        svc = ExtensionService(mock_freepbx_client)
+
+        svc.update_secret("1001", "new-secret")
+
+        mock_freepbx_client.update_extension.assert_called_once_with(
+            {"extensionId": "1001", "extPassword": "new-secret"}
+        )
