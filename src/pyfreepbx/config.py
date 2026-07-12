@@ -86,6 +86,11 @@ class AMIConfig(BaseSettings):
         gt=0,
         description="Maximum frames accepted from one multi-event AMI action",
     )
+    max_frame_bytes: int = Field(
+        default=1_048_576,
+        gt=0,
+        description="Maximum buffered bytes accepted for one AMI frame or banner line",
+    )
 
 
 class DBConfig(BaseSettings):

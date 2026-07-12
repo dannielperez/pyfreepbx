@@ -52,6 +52,19 @@ class TestConnection:
         assert client.banner == banner
         assert not client.authenticated
 
+    def test_connect_banner_failure_invalidates_session(self, client: AMIClient) -> None:
+        mock_sock = MagicMock(spec=socket.socket)
+        mock_sock.recv.return_value = b""
+        with (
+            patch("socket.create_connection", return_value=mock_sock),
+            pytest.raises(AMIConnectionError, match="closed by remote host"),
+        ):
+            client.connect()
+
+        mock_sock.close.assert_called_once_with()
+        assert not client.connected
+        assert not client.authenticated
+
     def test_disconnect_idempotent(self, client: AMIClient) -> None:
         # Disconnecting when not connected should not raise
         client.disconnect()
@@ -269,6 +282,9 @@ class TestRunAction:
 
         with pytest.raises(AMIError, match="2-event limit"):
             client.run_action_with_events("QueueSummary")
+        assert not client.connected
+        with pytest.raises(AMIError, match="Not connected"):
+            client.run_action("Ping")
 
     def test_command_is_not_allowlisted(
         self, client: AMIClient, caplog: pytest.LogCaptureFixture
@@ -279,6 +295,47 @@ class TestRunAction:
         client.run_action("Command", Command="core show version")
 
         assert "Running non-allowlisted AMI action: Command" in caplog.text
+
+    def test_oversized_frame_invalidates_session(self) -> None:
+        config = AMIConfig(
+            host="ami.test",
+            username="admin",
+            secret="secret",
+            max_frame_bytes=16,
+        )
+        client = AMIClient(config)
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: " + (b"x" * 32)
+
+        with pytest.raises(AMIError, match="16-byte limit"):
+            client.run_action("Ping")
+        assert not client.connected
+
+    def test_action_transport_timeout_invalidates_without_replay(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.side_effect = TimeoutError("response timed out")
+
+        with pytest.raises(TimeoutError, match="response timed out"):
+            client.run_action("QueuePause", Queue="support", Interface="PJSIP/2001")
+
+        assert mock_sock.sendall.call_count == 1
+        assert not client.connected
+        assert not client.authenticated
+        with pytest.raises(AMIError, match="Not connected"):
+            client.run_action("Ping")
+
+    def test_multi_event_timeout_invalidates_session(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.side_effect = [
+            b"Response: Success\r\n\r\n",
+            TimeoutError("event stream timed out"),
+        ]
+
+        with pytest.raises(TimeoutError, match="event stream timed out"):
+            client.run_action_with_events("QueueSummary")
+
+        assert not client.connected
+        assert not client.authenticated
 
 
 class TestQueuePause:
@@ -299,6 +356,16 @@ class TestQueuePause:
         assert "Interface: PJSIP/2001\r\n" in sent
         assert "Paused: true\r\n" in sent
         assert "Reason: break\r\n" in sent
+
+    def test_generic_queue_pause_is_not_allowlisted(
+        self, client: AMIClient, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Success\r\n\r\n"
+
+        client.run_action("QueuePause", Queue="support", Interface="PJSIP/2001")
+
+        assert "Running non-allowlisted AMI action: QueuePause" in caplog.text
 
     def test_queue_pause_rejection_raises(self, client: AMIClient) -> None:
         mock_sock = _make_connected(client)
