@@ -14,11 +14,13 @@ See: https://wiki.freepbx.org/display/FPG/GraphQL+API
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.clients.graphql import GraphQLClient
-from pyfreepbx.config import FreePBXConfig
 from pyfreepbx.logging import get_logger
+
+if TYPE_CHECKING:
+    from pyfreepbx.config import FreePBXConfig
 
 log = get_logger("clients.freepbx")
 
@@ -66,6 +68,57 @@ query {
             name
             strategy
         }
+    }
+}
+"""
+
+FETCH_ALL_RECORDINGS = """\
+query {
+    fetchAllRecordings {
+        status
+        message
+        recordings { id name description fcode language playback }
+    }
+}
+"""
+
+FETCH_RECORDING_FILES = """\
+query FetchRecordingFiles($search: String) {
+    fetchRecordingFiles(search: $search) {
+        status
+        message
+        recodingFiles
+    }
+}
+"""
+
+FETCH_CDR = """\
+query FetchCdr($id: ID!) {
+    fetchCdr(id: $id) {
+        uniqueid calldate src dst duration billsec disposition linkedid recordingfile
+        status message
+    }
+}
+"""
+
+CHECK_DISK_SPACE = """\
+query {
+    checkdiskspace {
+        status
+        message
+        diskspace { id storage_path available_space used_space total_size used_percentage }
+    }
+}
+"""
+
+FETCH_ASTERISK_DETAILS = """\
+query {
+    fetchAsteriskDetails {
+        status
+        message
+        asteriskStatus
+        asteriskVersion
+        amiStatus
     }
 }
 """
@@ -193,6 +246,7 @@ class FreePBXClient:
         .. warning:: **Experimental** — see :meth:`fetch_all_extensions`.
         """
         import warnings
+
         warnings.warn(
             "fetch_extension uses a provisional GraphQL query that has "
             "not been validated against a live FreePBX instance.",
@@ -221,6 +275,7 @@ class FreePBXClient:
            :meth:`fetch_all_extensions` for details.
         """
         import warnings
+
         warnings.warn(
             "fetch_all_queues uses a provisional GraphQL query. Queue module "
             "GraphQL support is undocumented and may not exist on your instance.",
@@ -232,6 +287,31 @@ class FreePBXClient:
         raw = result.get("queues", [])
         log.debug("Fetched %d raw queues", len(raw))
         return raw
+
+    # ------------------------------------------------------------------
+    # Recordings / CDR / health extras
+    # ------------------------------------------------------------------
+
+    def fetch_all_recordings(self) -> list[dict[str, Any]]:
+        data = self._gql.query(FETCH_ALL_RECORDINGS)
+        return data.get("fetchAllRecordings", {}).get("recordings") or []
+
+    def fetch_recording_files(self, search: str = "") -> list[str]:
+        data = self._gql.query(FETCH_RECORDING_FILES, variables={"search": search})
+        return data.get("fetchRecordingFiles", {}).get("recodingFiles") or []
+
+    def fetch_cdr(self, record_id: str) -> dict[str, Any] | None:
+        data = self._gql.query(FETCH_CDR, variables={"id": record_id})
+        result = data.get("fetchCdr") or {}
+        return result if result.get("uniqueid") else None
+
+    def check_disk_space(self) -> list[dict[str, Any]]:
+        data = self._gql.query(CHECK_DISK_SPACE)
+        return data.get("checkdiskspace", {}).get("diskspace") or []
+
+    def fetch_asterisk_details(self) -> dict[str, Any]:
+        data = self._gql.query(FETCH_ASTERISK_DETAILS)
+        return data.get("fetchAsteriskDetails") or {}
 
     # ------------------------------------------------------------------
     # Firewall
@@ -267,7 +347,9 @@ class FreePBXClient:
         return result.get("network", {})
 
     def update_network(
-        self, network_cidr: str, variables: dict[str, Any],
+        self,
+        network_cidr: str,
+        variables: dict[str, Any],
     ) -> dict[str, Any]:
         """Update a firewall network definition on the PBX."""
         data = self._gql.query(
