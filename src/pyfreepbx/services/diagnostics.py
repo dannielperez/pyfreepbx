@@ -6,14 +6,48 @@ from datetime import datetime
 from typing import Any
 
 from pyfreepbx.clients.ami import AMIClient
+from pyfreepbx.clients.freepbx import FreePBXClient
 from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.asterisk import AsteriskSummary
-from pyfreepbx.models.cdr import CDRListResult, CallDetailRecord
+from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
 from pyfreepbx.models.device import DeviceState
 from pyfreepbx.models.logs import AsteriskLogLine, AsteriskLogResult
 
 log = get_logger("services.diagnostics")
+
+# FreePBX 16+ exposes CDR through the api module's GraphQL schema; the REST
+# /cdr resource this service originally targeted does not exist there (every
+# call 404s — verified live against FreePBX 16 / api 16.0.18, 2026-07-12).
+# Field set introspected from a live FreePBX 16 schema.
+_CDR_GQL_QUERY = """
+query FetchAllCdrs($first: Int, $after: Int, $startDate: String, $endDate: String) {
+  fetchAllCdrs(first: $first, after: $after, startDate: $startDate, endDate: $endDate) {
+    totalCount
+    cdrs {
+      uniqueid
+      calldate
+      timestamp
+      clid
+      src
+      dst
+      dcontext
+      channel
+      dstchannel
+      lastapp
+      duration
+      billsec
+      disposition
+      accountcode
+      did
+      recordingfile
+      cnum
+      linkedid
+      sequence
+    }
+  }
+}
+"""
 
 
 class DiagnosticsService:
@@ -27,9 +61,15 @@ class DiagnosticsService:
 
     _HARD_LIMIT = 500
 
-    def __init__(self, rest: RestClient | None = None, ami: AMIClient | None = None) -> None:
+    def __init__(
+        self,
+        rest: RestClient | None = None,
+        ami: AMIClient | None = None,
+        client: FreePBXClient | None = None,
+    ) -> None:
         self._rest = rest
         self._ami = ami
+        self._client = client
 
     def cdr(
         self,
@@ -39,11 +79,30 @@ class DiagnosticsService:
         date_to: str = "",
         limit: int = 100,
     ) -> CDRListResult:
-        """Fetch and normalize CDR rows from FreePBX REST API."""
-        if self._rest is None:
-            raise RuntimeError("REST client is required for CDR queries")
+        """Fetch and normalize CDR rows.
+
+        GraphQL (``fetchAllCdrs``) is the primary path — it is what FreePBX 16
+        actually serves. The legacy REST ``/cdr`` resource is kept as a
+        fallback for deployments whose api module predates the GraphQL schema.
+        """
+        if self._rest is None and self._client is None:
+            raise RuntimeError("A GraphQL or REST client is required for CDR queries")
 
         bounded_limit = max(1, min(limit, self._HARD_LIMIT))
+
+        if self._client is not None:
+            try:
+                return self._cdr_via_graphql(
+                    extension=extension,
+                    date_from=date_from,
+                    date_to=date_to,
+                    limit=bounded_limit,
+                )
+            except Exception as exc:
+                if self._rest is None:
+                    raise
+                log.warning("GraphQL CDR fetch failed (%s); falling back to REST.", exc)
+
         params: dict[str, Any] = {"limit": bounded_limit}
         if extension:
             params["extension"] = extension
@@ -59,6 +118,53 @@ class DiagnosticsService:
             items=items,
             total=len(rows),
             truncated=len(rows) > bounded_limit,
+        )
+
+    def _cdr_via_graphql(
+        self,
+        *,
+        extension: str,
+        date_from: str,
+        date_to: str,
+        limit: int,
+    ) -> CDRListResult:
+        """Fetch CDR rows via the api module's ``fetchAllCdrs`` GraphQL query.
+
+        ``fetchAllCdrs`` has no extension argument, so extension filtering is
+        applied client-side against src/cnum/dst.
+        """
+        variables: dict[str, Any] = {"first": limit, "after": 0}
+        start = _to_cdr_gql_date(date_from)
+        end = _to_cdr_gql_date(date_to)
+        if start:
+            variables["startDate"] = start
+        if end:
+            variables["endDate"] = end
+
+        data = self._client.graphql.query(_CDR_GQL_QUERY, variables)
+        connection = data.get("fetchAllCdrs") or {}
+        rows = [row for row in (connection.get("cdrs") or []) if isinstance(row, dict)]
+
+        if extension:
+            rows = [
+                row
+                for row in rows
+                if extension
+                in (
+                    str(row.get("src") or ""),
+                    str(row.get("cnum") or ""),
+                    str(row.get("dst") or ""),
+                )
+            ]
+
+        total = connection.get("totalCount")
+        if not isinstance(total, int):
+            total = len(rows)
+        items = [_to_cdr_item(row) for row in rows[:limit]]
+        return CDRListResult(
+            items=items,
+            total=total,
+            truncated=total > len(items),
         )
 
     def asterisk_logs(
@@ -192,8 +298,26 @@ def _to_cdr_item(row: Any) -> CallDetailRecord:
         unique_id=str(row.get("uniqueid") or row.get("unique_id") or ""),
         linked_id=str(row.get("linkedid") or row.get("linked_id") or ""),
         queue=str(row.get("queue") or row.get("queue_name") or ""),
+        recording_file=str(row.get("recordingfile") or row.get("recording_file") or ""),
         raw=row,
     )
+
+
+def _to_cdr_gql_date(value: str) -> str:
+    """Normalize a caller-supplied date string for ``fetchAllCdrs``.
+
+    The cdr GraphQL provider compares against MySQL ``calldate`` strings, so
+    ISO-8601 inputs (``2026-07-10T15:38:51+00:00``) must be reshaped to
+    ``YYYY-MM-DD HH:MM:SS``. Unparseable inputs pass through unchanged.
+    """
+    text = (value or "").strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    return parsed.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _to_log_line(row: Any) -> AsteriskLogLine:
