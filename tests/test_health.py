@@ -190,3 +190,86 @@ class TestQueueOverview:
         mock_ami.queue_summary.side_effect = ConnectionError("lost")
         svc = HealthService(mock_freepbx_client, mock_ami)
         assert svc.queue_overview() is None
+
+
+class TestEnsureAmiSession:
+    """The service must establish the AMI session itself (connect + login).
+
+    Regression (observed live 2026-07-11): the facade hands HealthService a
+    configured-but-unconnected AMIClient; _check_ami pinged it unconnected and
+    every AMI-configured deployment health-checked DOWN with "Not connected to
+    AMI. Call connect() first.", while endpoint_summary() returned None (no
+    registration data at all).
+    """
+
+    def test_check_ami_connects_unconnected_client(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_freepbx_client.graphql.query.return_value = {"__typename": "Query"}
+        mock_ami.connected = False
+        mock_ami.authenticated = False
+        mock_ami.ping.return_value = True
+
+        svc = HealthService(mock_freepbx_client, mock_ami)
+        result = svc.summary()
+
+        mock_ami.connect.assert_called_once()
+        mock_ami.login.assert_called_once()
+        assert result.overall == HealthStatus.OK
+
+    def test_connect_failure_marks_ami_down(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        from pyfreepbx.exceptions import AMIConnectionError
+
+        mock_freepbx_client.graphql.query.return_value = {"__typename": "Query"}
+        mock_ami.connected = False
+        mock_ami.connect.side_effect = AMIConnectionError("refused")
+
+        svc = HealthService(mock_freepbx_client, mock_ami)
+        result = svc.summary()
+
+        ami_check = next(c for c in result.checks if c.name == "ami")
+        assert ami_check.status == HealthStatus.DOWN
+        assert "refused" in ami_check.detail
+        mock_ami.ping.assert_not_called()
+
+    def test_already_authenticated_session_not_reconnected(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_freepbx_client.graphql.query.return_value = {"__typename": "Query"}
+        mock_ami.connected = True
+        mock_ami.authenticated = True
+        mock_ami.ping.return_value = True
+
+        svc = HealthService(mock_freepbx_client, mock_ami)
+        svc.summary()
+
+        mock_ami.connect.assert_not_called()
+        mock_ami.login.assert_not_called()
+
+    def test_endpoint_summary_connects_on_demand(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.connected = False
+        mock_ami.authenticated = False
+        mock_ami.pjsip_endpoints.return_value = []
+
+        svc = HealthService(mock_freepbx_client, mock_ami)
+        result = svc.endpoint_summary()
+
+        mock_ami.connect.assert_called_once()
+        mock_ami.login.assert_called_once()
+        assert result is not None
+        assert result.total == 0
+
+    def test_endpoint_summary_none_on_connect_failure(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        from pyfreepbx.exceptions import AMIConnectionError
+
+        mock_ami.connected = False
+        mock_ami.connect.side_effect = AMIConnectionError("refused")
+
+        svc = HealthService(mock_freepbx_client, mock_ami)
+        assert svc.endpoint_summary() is None
