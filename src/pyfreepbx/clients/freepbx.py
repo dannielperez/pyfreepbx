@@ -58,8 +58,25 @@ query FetchExtension($extensionId: String!) {
 }
 """
 
-# TODO: addExtension / updateExtension mutations — confirm names and
-# input types via introspection before implementing.
+ADD_EXTENSION = """\
+mutation AddExtension($input: addExtensionInput!) {
+    addExtension(input: $input) {
+        status
+        message
+        clientMutationId
+    }
+}
+"""
+
+UPDATE_EXTENSION = """\
+mutation UpdateExtension($input: updateExtensionInput!) {
+    updateExtension(input: $input) {
+        status
+        message
+        clientMutationId
+    }
+}
+"""
 
 # ---------------------------------------------------------------------------
 # Firewall queries (validated against FreePBX 16 / firewall 16.x)
@@ -125,18 +142,7 @@ class FreePBXClient:
         return [item.get("user", item) for item in raw]
 
     def fetch_extension(self, extension_id: str) -> dict[str, Any] | None:
-        """Fetch a single extension by number. Returns None if not found.
-
-        .. warning:: **Experimental** — see :meth:`fetch_all_extensions`.
-        """
-        import warnings
-
-        warnings.warn(
-            "fetch_extension uses a provisional GraphQL query that has "
-            "not been validated against a live FreePBX instance.",
-            stacklevel=2,
-            category=UserWarning,
-        )
+        """Fetch a single extension by number. Returns None if not found."""
         data = self._gql.query(
             FETCH_EXTENSION,
             variables={"extensionId": extension_id},
@@ -146,6 +152,22 @@ class FreePBXClient:
         if not ext:
             return None
         return ext.get("user", ext)
+
+    def add_extension(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Create an extension with the live-confirmed FreePBX mutation."""
+        data = self._gql.mutation(ADD_EXTENSION, variables={"input": input_data})
+        result = data.get("addExtension")
+        if not isinstance(result, dict):
+            raise ValueError("FreePBX omitted addExtension from its response")
+        return result
+
+    def update_extension(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        """Update an extension with the live-confirmed FreePBX mutation."""
+        data = self._gql.mutation(UPDATE_EXTENSION, variables={"input": input_data})
+        result = data.get("updateExtension")
+        if not isinstance(result, dict):
+            raise ValueError("FreePBX omitted updateExtension from its response")
+        return result
 
     # ------------------------------------------------------------------
     # Firewall

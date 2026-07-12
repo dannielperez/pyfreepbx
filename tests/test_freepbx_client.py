@@ -122,3 +122,32 @@ class TestFetchFirewallConfiguration:
         client = FreePBXClient(config)
         with pytest.raises(ValueError, match="omitted firewall configurations"):
             client.fetch_firewall_configuration()
+
+
+class TestExtensionMutations:
+    @respx.mock
+    def test_add_extension_uses_typed_input_variable(self, config: FreePBXConfig) -> None:
+        route = respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": {"addExtension": {"status": True, "message": "created"}}},
+            )
+        )
+        client = FreePBXClient(config)
+
+        result = client.add_extension({"extensionId": "1050", "name": "New User"})
+
+        assert result["status"] is True
+        request_body = route.calls[0].request.content
+        assert b"mutation AddExtension" in request_body
+        assert b'"extensionId":"1050"' in request_body
+
+    @respx.mock
+    def test_update_extension_rejects_missing_payload(self, config: FreePBXConfig) -> None:
+        respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(200, json={"data": {"updateExtension": None}})
+        )
+        client = FreePBXClient(config)
+
+        with pytest.raises(ValueError, match="omitted updateExtension"):
+            client.update_extension({"extensionId": "1050", "name": "Updated"})
