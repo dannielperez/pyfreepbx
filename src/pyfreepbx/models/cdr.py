@@ -19,6 +19,7 @@ class CallDetailRecord(BaseModel):
     unique_id: str = ""
     linked_id: str = ""
     queue: str = ""
+    recording_file: str = ""
     raw: dict = {}
 
 
