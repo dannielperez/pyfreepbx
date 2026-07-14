@@ -60,7 +60,13 @@ class DiagnosticsService:
     - missing backend capabilities degrade gracefully
     """
 
+    # GraphQL is O(full-table) at scale, so its page is capped tight. The
+    # direct-DB path is a sargable, indexed query (~ms), so it takes a much
+    # larger page — otherwise an incremental CDR sync on a busy PBX never
+    # catches up (it hits the cap every run and reports itself perpetually
+    # ``partial``/backfill-incomplete).
     _HARD_LIMIT = 500
+    _DB_HARD_LIMIT = 5000
 
     def __init__(
         self,
@@ -88,14 +94,12 @@ class DiagnosticsService:
         read via the api module's GraphQL ``fetchAllCdrs``. The legacy REST
         ``/cdr`` resource does not exist on FreePBX 16 and is not retried.
         """
-        bounded_limit = max(1, min(limit, self._HARD_LIMIT))
-
         if self._cdr_db is not None:
             return self._cdr_via_db(
                 extension=extension,
                 date_from=date_from,
                 date_to=date_to,
-                limit=bounded_limit,
+                limit=max(1, min(limit, self._DB_HARD_LIMIT)),
             )
 
         if self._client is None:
@@ -105,7 +109,7 @@ class DiagnosticsService:
             extension=extension,
             date_from=date_from,
             date_to=date_to,
-            limit=bounded_limit,
+            limit=max(1, min(limit, self._HARD_LIMIT)),
         )
 
     def _cdr_via_db(
