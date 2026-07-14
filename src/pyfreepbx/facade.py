@@ -21,14 +21,15 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from pyfreepbx.clients.ami import AMIClient
+from pyfreepbx.clients.cdr_db import CdrDbReader
 from pyfreepbx.clients.freepbx import FreePBXClient
 from pyfreepbx.clients.oauth import OAuth2Client
 from pyfreepbx.clients.rest import RestClient
-from pyfreepbx.config import AMIConfig, FreePBXConfig
+from pyfreepbx.config import AMIConfig, DBConfig, FreePBXConfig
 from pyfreepbx.exceptions import ConfigError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.health import StatusResult
@@ -70,6 +71,12 @@ class FreePBX:
         ami_username: str | None = None,
         ami_secret: str | None = None,
         ami_timeout: float = 10.0,
+        db_host: str | None = None,
+        db_port: int = 3306,
+        db_name: str = "asterisk",
+        db_user: str | None = None,
+        db_password: str | None = None,
+        db_timeout: float = 15.0,
     ) -> None:
         # GraphQL config (always required)
         self._gql_config = FreePBXConfig(
@@ -108,6 +115,20 @@ class FreePBX:
             )
             self._ami_client = AMIClient(self._ami_config)
 
+        # Direct-DB CDR reader (optional). When DB credentials are supplied it
+        # becomes the primary CDR path — a bounded, sargable, read-only query
+        # that avoids the FreePBX 16 fetchAllCdrs full-scan at scale.
+        self._cdr_db_reader: CdrDbReader | None = None
+        if db_host and db_user and db_password:
+            self._db_config = DBConfig(
+                host=db_host,
+                port=db_port,
+                name=db_name,
+                user=db_user,
+                password=db_password,
+            )
+            self._cdr_db_reader = CdrDbReader(self._db_config, timeout=db_timeout)
+
         # Services
         self._extensions = ExtensionService(self._client, self._rest_client)
         self._queues = QueueService(self._client, self._ami_client)
@@ -117,6 +138,7 @@ class FreePBX:
         self._diagnostics = DiagnosticsService(
             self._ami_client,
             client=self._client,
+            cdr_db=self._cdr_db_reader,
         )
         self._recordings = RecordingService(self._client)
 
@@ -194,7 +216,7 @@ class FreePBX:
         ami_username: str | None = None,
         ami_secret: str | None = None,
         ami_timeout: float = 10.0,
-        **kwargs,
+        **kwargs: Any,
     ) -> FreePBX:
         """Create a FreePBX instance from a full URL.
 
@@ -230,6 +252,9 @@ class FreePBX:
             ami_username=ami_username,
             ami_secret=ami_secret,
             ami_timeout=ami_timeout,
+            # Direct-DB CDR reader params pass through (db_host/db_user/
+            # db_password/db_port/db_name/db_timeout) — see __init__.
+            **kwargs,
         )
 
     @classmethod
