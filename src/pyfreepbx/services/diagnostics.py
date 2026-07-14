@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.logging import get_logger
@@ -293,19 +293,25 @@ def _to_cdr_gql_date(value: str) -> str:
 def _parse_datetime(value: str) -> datetime | None:
     if not value:
         return None
+    parsed: datetime | None = None
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%dT%H:%M:%S.%f",
     ):
         try:
-            return datetime.strptime(value, fmt)
+            parsed = datetime.strptime(value, fmt).replace(tzinfo=UTC)
+            break
         except ValueError:
             continue
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return None
+    if parsed is None:
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    # Asterisk CDR's MySQL DATETIME has no zone metadata. The FreePBX CDR
+    # contract is UTC, so expose a typed aware instant to every consumer.
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
 
 
 def _to_int(value: Any) -> int:
