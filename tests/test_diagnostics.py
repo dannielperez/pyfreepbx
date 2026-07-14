@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 from pyfreepbx.models.device import Device, DeviceState
@@ -106,6 +106,22 @@ class TestDiagnosticsServiceCDRGraphQL:
         assert item.recording_file == "external-105-2001-20260711-101112.wav"
         assert item.raw["recordingfile"] == item.recording_file
         assert isinstance(item.timestamp, datetime)
+        assert item.timestamp == datetime(2026, 7, 11, 10, 11, 12, tzinfo=UTC)
+
+    def test_explicit_cdr_offset_is_preserved(self) -> None:
+        client = self._gql_client(
+            [
+                {
+                    "uniqueid": "offset",
+                    "calldate": "2026-07-11T06:11:12-04:00",
+                },
+            ],
+        )
+
+        item = DiagnosticsService(client=client).cdr(limit=1).items[0]
+
+        assert item.timestamp is not None
+        assert item.timestamp.isoformat() == "2026-07-11T06:11:12-04:00"
 
     def test_extension_filter_is_client_side(self) -> None:
         client = self._gql_client(
