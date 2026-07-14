@@ -180,6 +180,16 @@ class TestDiagnosticsCdrRouting:
         result = svc.cdr(limit=2)
         assert result.truncated is True
 
+    def test_db_path_uses_larger_limit_than_graphql(self) -> None:
+        """The sargable direct-DB path takes up to _DB_HARD_LIMIT (5000), not the
+        tight GraphQL _HARD_LIMIT (500) — otherwise an incremental sync never
+        catches up on a busy PBX."""
+        reader = MagicMock()
+        reader.fetch_cdr.return_value = []
+        svc = DiagnosticsService(ami=None, client=MagicMock(), cdr_db=reader)
+        svc.cdr(limit=5000)
+        assert reader.fetch_cdr.call_args.kwargs["limit"] == 5000
+
     def test_falls_back_to_graphql_without_reader(self) -> None:
         gql_client = MagicMock()
         gql_client.graphql.query.return_value = {"fetchAllCdrs": {"totalCount": 0, "cdrs": []}}
