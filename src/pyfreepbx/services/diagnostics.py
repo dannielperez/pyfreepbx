@@ -14,6 +14,7 @@ log = get_logger("services.diagnostics")
 
 if TYPE_CHECKING:
     from pyfreepbx.clients.ami import AMIClient
+    from pyfreepbx.clients.cdr_db import CdrDbReader
     from pyfreepbx.clients.freepbx import FreePBXClient
 
 # FreePBX 16+ exposes CDR through the api module's GraphQL schema; the REST
@@ -65,9 +66,11 @@ class DiagnosticsService:
         self,
         ami: AMIClient | None = None,
         client: FreePBXClient | None = None,
+        cdr_db: CdrDbReader | None = None,
     ) -> None:
         self._ami = ami
         self._client = client
+        self._cdr_db = cdr_db
 
     def cdr(
         self,
@@ -79,20 +82,58 @@ class DiagnosticsService:
     ) -> CDRListResult:
         """Fetch and normalize CDR rows.
 
-        FreePBX 16 serves CDR through GraphQL ``fetchAllCdrs``. The previously
-        assumed REST ``/cdr`` resource does not exist and is intentionally not
-        retried as a fallback.
+        When a direct-DB reader is configured it is the primary path — a
+        bounded, sargable query that avoids the FreePBX 16 ``fetchAllCdrs``
+        full-scan/filesort at scale (see ``clients.cdr_db``). Otherwise CDR is
+        read via the api module's GraphQL ``fetchAllCdrs``. The legacy REST
+        ``/cdr`` resource does not exist on FreePBX 16 and is not retried.
         """
-        if self._client is None:
-            raise RuntimeError("A GraphQL client is required for CDR queries")
-
         bounded_limit = max(1, min(limit, self._HARD_LIMIT))
+
+        if self._cdr_db is not None:
+            return self._cdr_via_db(
+                extension=extension,
+                date_from=date_from,
+                date_to=date_to,
+                limit=bounded_limit,
+            )
+
+        if self._client is None:
+            raise RuntimeError("A GraphQL client or DB reader is required for CDR queries")
 
         return self._cdr_via_graphql(
             extension=extension,
             date_from=date_from,
             date_to=date_to,
             limit=bounded_limit,
+        )
+
+    def _cdr_via_db(
+        self,
+        *,
+        extension: str,
+        date_from: str,
+        date_to: str,
+        limit: int,
+    ) -> CDRListResult:
+        """Fetch CDR rows via the read-only direct-DB reader (primary path)."""
+        reader = self._cdr_db
+        if reader is None:  # private-helper guard for static type safety
+            raise RuntimeError("A DB reader is required for the direct-DB CDR path")
+        rows = reader.fetch_cdr(
+            date_from=date_from,
+            date_to=date_to,
+            extension=extension,
+            limit=limit,
+        )
+        items = [_to_cdr_item(row) for row in rows]
+        # A full page implies more rows exist beyond the window's newest slice;
+        # exact totals are deliberately not computed (the COUNT(*) is what makes
+        # the GraphQL path slow). The consumer upserts idempotently regardless.
+        return CDRListResult(
+            items=items,
+            total=len(items),
+            truncated=len(rows) >= limit,
         )
 
     def _cdr_via_graphql(
