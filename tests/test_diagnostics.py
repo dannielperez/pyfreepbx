@@ -161,6 +161,6 @@ class TestDiagnosticsServiceCDRGraphQL:
         try:
             svc.cdr()
         except RuntimeError as exc:
-            assert "client is required" in str(exc)
+            assert "required for CDR queries" in str(exc)
         else:
             raise AssertionError("expected RuntimeError")
