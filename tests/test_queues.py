@@ -58,6 +58,17 @@ class TestQueueList:
         svc = QueueService(mock_freepbx_client, mock_ami)
         assert svc.list() == []
 
+    def test_list_result_marks_successful_empty_inventory_complete(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.queue_summary.return_value = []
+        mock_ami.queue_status.return_value = []
+
+        result = QueueService(mock_freepbx_client, mock_ami).list_result()
+
+        assert result.items == []
+        assert result.complete is True
+
     def test_list_without_ami_raises(self, mock_freepbx_client: MagicMock) -> None:
         svc = QueueService(mock_freepbx_client)
         with pytest.raises(RuntimeError, match="AMI client is required"):
