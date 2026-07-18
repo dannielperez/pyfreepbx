@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from pyfreepbx.exceptions import NotFoundError, NotSupportedError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.firewall_configuration import FirewallConfiguration
+from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.schemas.firewall_create import FirewallNetworkCreate
 
 if TYPE_CHECKING:
@@ -67,6 +68,10 @@ class FirewallService:
     def list_networks(self) -> list[FirewallNetwork]:
         """Network inventory is not exposed by the FreePBX 16 GraphQL schema."""
         raise NotSupportedError("FreePBX 16 does not expose firewall network inventory")
+
+    def list_networks_result(self) -> InventoryListResult[FirewallNetwork]:
+        """Fetch network inventory with an authoritative-response signal."""
+        return InventoryListResult(items=self.list_networks(), complete=True)
 
     def configuration(self) -> FirewallConfiguration:
         """Fetch the global firewall configuration supported by FreePBX 16."""

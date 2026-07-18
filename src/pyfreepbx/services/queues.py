@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from pyfreepbx.exceptions import NotFoundError
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
 
 if TYPE_CHECKING:
@@ -57,6 +58,14 @@ class QueueService:
 
         log.debug("Listed %d queues", len(queues))
         return queues
+
+    def list_result(self) -> InventoryListResult[Queue]:
+        """Fetch queue inventory with an authoritative-response signal.
+
+        AMI queue methods return only after receiving their ``*Complete``
+        marker, so a successful result is authoritative even when empty.
+        """
+        return InventoryListResult(items=self.list(), complete=True)
 
     def get(self, queue_number: str) -> Queue:
         """Fetch a single queue by number.
