@@ -32,3 +32,8 @@ def test_configuration_returns_typed_live_payload() -> None:
 def test_network_inventory_fails_explicitly() -> None:
     with pytest.raises(NotSupportedError, match="does not expose"):
         FirewallService(MagicMock()).list_networks()
+
+
+def test_network_inventory_result_preserves_unsupported_error() -> None:
+    with pytest.raises(NotSupportedError, match="does not expose"):
+        FirewallService(MagicMock()).list_networks_result()
