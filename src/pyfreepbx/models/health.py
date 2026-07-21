@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from pyfreepbx.models.device import Device  # noqa: TC001 - Pydantic resolves at runtime
 
 
 class HealthStatus(str, Enum):
@@ -51,6 +53,15 @@ class EndpointSummary(BaseModel):
     unregistered: int = 0
     unavailable: int = 0
     unknown: int = 0
+
+
+class EndpointSnapshot(BaseModel):
+    """One authoritative AMI endpoint-registration snapshot."""
+
+    items: list[Device] = Field(default_factory=list)
+    summary: EndpointSummary = Field(default_factory=EndpointSummary)
+    complete: bool = False
+    error: str = ""
 
 
 class DiskSpace(BaseModel):
