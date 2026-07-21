@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from typing import TYPE_CHECKING
 
 import pytest
 
+from pyfreepbx.exceptions import AMIError
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.health import HealthStatus
 from pyfreepbx.models.queue import QueueStats
 from pyfreepbx.models.system import SystemInfo
 from pyfreepbx.services.health import HealthService
+
+if TYPE_CHECKING:
+    from unittest.mock import MagicMock
 
 
 class TestSummary:
@@ -36,9 +40,7 @@ class TestSummary:
         assert "refused" in result.checks[0].detail
         assert result.overall == HealthStatus.DOWN
 
-    def test_both_interfaces(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_both_interfaces(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         mock_freepbx_client.graphql.query.return_value = {"__typename": "Query"}
         mock_ami.ping.return_value = True
 
@@ -50,9 +52,7 @@ class TestSummary:
         assert names == {"graphql", "ami"}
         assert result.overall == HealthStatus.OK
 
-    def test_ami_degraded(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_ami_degraded(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         mock_freepbx_client.graphql.query.return_value = {"__typename": "Query"}
         mock_ami.ping.return_value = False
 
@@ -65,9 +65,7 @@ class TestSummary:
 
 
 class TestPbxInfo:
-    def test_returns_system_info(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_returns_system_info(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         expected = SystemInfo(asterisk_version="18.17.0", active_calls=3)
         mock_ami.core_status.return_value = expected
 
@@ -82,9 +80,7 @@ class TestPbxInfo:
         svc = HealthService(mock_freepbx_client, ami=None)
         assert svc.pbx_info() is None
 
-    def test_none_on_ami_error(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_none_on_ami_error(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         mock_ami.core_status.side_effect = ConnectionError("timeout")
 
         svc = HealthService(mock_freepbx_client, mock_ami)
@@ -102,9 +98,7 @@ class TestEndpointSummary:
             Device(name="1005", state=DeviceState.UNKNOWN),
         ]
 
-    def test_counts_by_state(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_counts_by_state(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         mock_ami.pjsip_endpoints.return_value = self._devices()
 
         svc = HealthService(mock_freepbx_client, mock_ami)
@@ -121,18 +115,61 @@ class TestEndpointSummary:
         svc = HealthService(mock_freepbx_client, ami=None)
         assert svc.endpoint_summary() is None
 
-    def test_none_on_error(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
-        mock_ami.pjsip_endpoints.side_effect = RuntimeError("boom")
+    def test_none_on_error(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
+        mock_ami.pjsip_endpoints.side_effect = AMIError("boom")
         svc = HealthService(mock_freepbx_client, mock_ami)
         assert svc.endpoint_summary() is None
 
 
-class TestUnregisteredEndpoints:
-    def test_filters_offline(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+class TestEndpointSnapshot:
+    def test_returns_typed_complete_items(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
     ) -> None:
+        devices = [
+            Device(extension="1001", name="1001", state=DeviceState.REGISTERED),
+            Device(extension="1002", name="1002", state=DeviceState.UNREGISTERED),
+        ]
+        mock_ami.pjsip_endpoints.return_value = devices
+
+        result = HealthService(mock_freepbx_client, mock_ami).endpoint_snapshot()
+
+        assert result.complete is True
+        assert result.error == ""
+        assert result.items == devices
+        assert result.summary.total == 2
+        assert result.summary.registered == 1
+
+    def test_expected_ami_error_is_explicitly_incomplete(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_ami.pjsip_endpoints.side_effect = AMIError("timed out")
+
+        result = HealthService(mock_freepbx_client, mock_ami).endpoint_snapshot()
+
+        assert result.complete is False
+        assert result.items == []
+        assert result.error == "timed out"
+
+    def test_process_control_exception_is_not_swallowed(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        class ProcessAbortError(Exception):
+            pass
+
+        mock_ami.pjsip_endpoints.side_effect = ProcessAbortError("abort")
+
+        with pytest.raises(ProcessAbortError, match="abort"):
+            HealthService(mock_freepbx_client, mock_ami).endpoint_snapshot()
+
+
+class TestUnregisteredEndpoints:
+    def test_filters_offline(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         devices = [
             Device(name="1001", state=DeviceState.REGISTERED),
             Device(name="1002", state=DeviceState.UNREGISTERED),
@@ -164,9 +201,7 @@ class TestUnregisteredEndpoints:
 
 
 class TestQueueOverview:
-    def test_returns_stats(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_returns_stats(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         expected = [
             QueueStats(queue="support", logged_in=3, available=2, callers=1),
             QueueStats(queue="sales", logged_in=5, available=4, callers=0),
@@ -184,9 +219,7 @@ class TestQueueOverview:
         svc = HealthService(mock_freepbx_client, ami=None)
         assert svc.queue_overview() is None
 
-    def test_none_on_error(
-        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
-    ) -> None:
+    def test_none_on_error(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         mock_ami.queue_summary.side_effect = ConnectionError("lost")
         svc = HealthService(mock_freepbx_client, mock_ami)
         assert svc.queue_overview() is None

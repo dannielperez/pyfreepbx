@@ -10,11 +10,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from pyfreepbx.exceptions import AMIError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.health import (
     AsteriskDetails,
     DiskSpace,
+    EndpointSnapshot,
     EndpointSummary,
     HealthCheck,
     HealthStatus,
@@ -125,33 +127,42 @@ class HealthService:
     # Endpoint registration
     # ------------------------------------------------------------------
 
-    def endpoint_summary(self) -> EndpointSummary | None:
-        """Aggregate endpoint registration counts.
+    def endpoint_snapshot(self) -> EndpointSnapshot:
+        """Fetch one typed endpoint snapshot with an explicit completeness signal.
 
-        Returns:
-            :class:`EndpointSummary` with totals per state,
-            or ``None`` if AMI is unavailable.
+        Expected AMI transport/authentication failures become an incomplete
+        result. Process-control exceptions are not swallowed.
         """
         try:
             if not self._ensure_ami_session():
-                log.warning("endpoint_summary requires AMI — skipping.")
-                return None
+                error = "AMI is not configured"
+                log.warning("endpoint_snapshot requires AMI — skipping.")
+                return EndpointSnapshot(error=error)
             devices = self._ami.pjsip_endpoints()
-        except Exception as exc:
+        except (AMIError, OSError) as exc:
             log.error("Failed to fetch endpoints: %s", exc)
-            return None
+            return EndpointSnapshot(error=str(exc) or "AMI endpoint fetch failed")
 
         counts: dict[DeviceState, int] = {s: 0 for s in DeviceState}
         for d in devices:
             counts[d.state] = counts.get(d.state, 0) + 1
 
-        return EndpointSummary(
-            total=len(devices),
-            registered=counts[DeviceState.REGISTERED],
-            unregistered=counts[DeviceState.UNREGISTERED],
-            unavailable=counts[DeviceState.UNAVAILABLE],
-            unknown=counts[DeviceState.UNKNOWN],
+        return EndpointSnapshot(
+            items=devices,
+            summary=EndpointSummary(
+                total=len(devices),
+                registered=counts[DeviceState.REGISTERED],
+                unregistered=counts[DeviceState.UNREGISTERED],
+                unavailable=counts[DeviceState.UNAVAILABLE],
+                unknown=counts[DeviceState.UNKNOWN],
+            ),
+            complete=True,
         )
+
+    def endpoint_summary(self) -> EndpointSummary | None:
+        """Aggregate endpoint registration counts, or ``None`` if incomplete."""
+        snapshot = self.endpoint_snapshot()
+        return snapshot.summary if snapshot.complete else None
 
     def unregistered_endpoints(self) -> list[Device] | None:
         """List endpoints that are not currently registered.
@@ -162,19 +173,16 @@ class HealthService:
             List of :class:`Device` with state UNREGISTERED or
             UNAVAILABLE, or ``None`` if AMI is unavailable.
         """
-        try:
-            if not self._ensure_ami_session():
-                log.warning("unregistered_endpoints requires AMI — skipping.")
-                return None
-            devices = self._ami.pjsip_endpoints()
-        except Exception as exc:
-            log.error("Failed to fetch endpoints: %s", exc)
+        snapshot = self.endpoint_snapshot()
+        if not snapshot.complete:
             return None
 
         offline = [
-            d for d in devices if d.state in (DeviceState.UNREGISTERED, DeviceState.UNAVAILABLE)
+            d
+            for d in snapshot.items
+            if d.state in (DeviceState.UNREGISTERED, DeviceState.UNAVAILABLE)
         ]
-        log.debug("%d of %d endpoints offline", len(offline), len(devices))
+        log.debug("%d of %d endpoints offline", len(offline), len(snapshot.items))
         return offline
 
     # ------------------------------------------------------------------
