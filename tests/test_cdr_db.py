@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
@@ -170,7 +170,7 @@ class TestDiagnosticsCdrRouting:
         assert result.total == 1
         assert result.items[0].unique_id == "u1"
         assert result.items[0].source == "2701"
-        assert result.items[0].timestamp == datetime(2026, 7, 13, 23, 59, 56, tzinfo=UTC)
+        assert result.items[0].timestamp == datetime(2026, 7, 13, 23, 59, 56, tzinfo=timezone.utc)
 
     def test_truncated_when_full_page(self) -> None:
         reader = MagicMock()
