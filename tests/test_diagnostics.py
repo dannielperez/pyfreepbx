@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.system import SystemInfo
 from pyfreepbx.services.diagnostics import DiagnosticsService
+
+FIXTURES = Path(__file__).parent / "fixtures" / "consumer_contracts"
+
+
+def _load_fixture(name: str) -> dict[str, Any]:
+    return cast("dict[str, Any]", json.loads((FIXTURES / name).read_text(encoding="utf-8")))
 
 
 class TestDiagnosticsServiceEndpointDetails:
@@ -68,7 +77,10 @@ class TestDiagnosticsServiceCDRGraphQL:
     does not exist there (every call 404s, verified live 2026-07-12)."""
 
     @staticmethod
-    def _gql_client(rows, total=None):
+    def _gql_client(
+        rows: list[dict[str, Any]],
+        total: int | None = None,
+    ) -> MagicMock:
         client = MagicMock()
         client.graphql.query.return_value = {
             "fetchAllCdrs": {
@@ -79,31 +91,24 @@ class TestDiagnosticsServiceCDRGraphQL:
         return client
 
     def test_graphql_is_primary_path(self) -> None:
-        client = self._gql_client(
-            [
-                {
-                    "uniqueid": "175.99",
-                    "calldate": "2026-07-11 10:11:12",
-                    "src": "2001",
-                    "dst": "105",
-                    "duration": 42,
-                    "billsec": 40,
-                    "disposition": "ANSWERED",
-                    "recordingfile": "external-105-2001-20260711-101112.wav",
-                    "linkedid": "175.99",
-                },
-            ],
-        )
+        fixture = _load_fixture("cdr_graphql.json")
+        client = MagicMock()
+        client.graphql.query.return_value = fixture
 
         svc = DiagnosticsService(client=client)
         result = svc.cdr(limit=20)
 
-        assert result.total == 1
+        assert result.total == 2
+        assert result.truncated is False
         item = result.items[0]
-        assert item.unique_id == "175.99"
+        assert item.unique_id == "fixture-call-001"
+        assert item.linked_id == "fixture-linked-001"
         assert item.source == "2001"
         assert item.destination == "105"
-        assert item.recording_file == "external-105-2001-20260711-101112.wav"
+        assert item.duration == 42
+        assert item.billsec == 40
+        assert item.disposition == "ANSWERED"
+        assert item.recording_file == "fixture-105-2001-20260711-101112.wav"
         assert item.raw["recordingfile"] == item.recording_file
         assert isinstance(item.timestamp, datetime)
         assert item.timestamp == datetime(2026, 7, 11, 10, 11, 12, tzinfo=timezone.utc)

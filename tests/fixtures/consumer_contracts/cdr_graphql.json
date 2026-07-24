@@ -1,0 +1,47 @@
+{
+  "fetchAllCdrs": {
+    "totalCount": 2,
+    "cdrs": [
+      {
+        "uniqueid": "fixture-call-001",
+        "linkedid": "fixture-linked-001",
+        "calldate": "2026-07-11 10:11:12",
+        "clid": "\"Fixture Caller\" <2001>",
+        "src": "2001",
+        "dst": "105",
+        "dcontext": "from-internal",
+        "channel": "PJSIP/2001-fixture",
+        "dstchannel": "PJSIP/105-fixture",
+        "lastapp": "Dial",
+        "duration": "42",
+        "billsec": "40",
+        "disposition": "ANSWERED",
+        "accountcode": "",
+        "did": "",
+        "recordingfile": "fixture-105-2001-20260711-101112.wav",
+        "cnum": "2001",
+        "sequence": "1"
+      },
+      {
+        "uniqueid": "fixture-call-002",
+        "linkedid": "fixture-linked-002",
+        "calldate": "2026-07-11 10:12:00",
+        "clid": "\"Fixture Caller\" <2002>",
+        "src": "2002",
+        "dst": "106",
+        "dcontext": "from-internal",
+        "channel": "PJSIP/2002-fixture",
+        "dstchannel": "",
+        "lastapp": "Dial",
+        "duration": "8",
+        "billsec": "0",
+        "disposition": "NO ANSWER",
+        "accountcode": "",
+        "did": "",
+        "recordingfile": "",
+        "cnum": "2002",
+        "sequence": "2"
+      }
+    ]
+  }
+}
