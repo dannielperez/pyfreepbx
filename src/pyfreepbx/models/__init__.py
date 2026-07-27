@@ -3,19 +3,16 @@
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.call import OriginateResult
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
-<<<<<<< HEAD
 from pyfreepbx.models.device import (
     Device,
     DeviceState,
     normalize_device_state,
     normalize_sip_status,
-=======
-from pyfreepbx.models.device import Device, DeviceState
+)
 from pyfreepbx.models.endpoint_state import (
     ENDPOINT_STATE_NOT_FOUND,
     ENDPOINT_STATE_TO_DEVICE_STATE,
     normalize_registration_state,
->>>>>>> origin/main
 )
 from pyfreepbx.models.extension import Extension, ExtensionType
 from pyfreepbx.models.firewall import FirewallNetwork, FirewallZone
@@ -58,10 +55,7 @@ __all__ = [
     "QueueStats",
     "StatusResult",
     "SystemInfo",
-<<<<<<< HEAD
     "normalize_device_state",
-    "normalize_sip_status",
-=======
     "normalize_registration_state",
->>>>>>> origin/main
+    "normalize_sip_status",
 ]
