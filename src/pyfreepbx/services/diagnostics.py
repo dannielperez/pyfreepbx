@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
-from pyfreepbx.models.device import DeviceState
+from pyfreepbx.models.device import DeviceState, normalize_device_state
 
 log = get_logger("services.diagnostics")
 
@@ -322,11 +322,6 @@ def _to_int(value: Any) -> int:
 
 
 def _map_device_state(value: str) -> str:
-    lowered = (value or "").strip().lower()
-    if "avail" in lowered and "unavail" not in lowered:
-        return "registered"
-    if "unavail" in lowered:
-        return "unavailable"
-    if "unreg" in lowered or "offline" in lowered:
-        return "unregistered"
-    return "unknown"
+    # One vocabulary, shared with the AMI client: the enum values are already
+    # the lowercase strings this helper's callers expect.
+    return normalize_device_state(value).value

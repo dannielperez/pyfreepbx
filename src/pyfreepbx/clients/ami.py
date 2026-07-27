@@ -43,7 +43,12 @@ from pyfreepbx.clients.base import BaseClient
 from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError, AMITimeout
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.call import OriginateResult
-from pyfreepbx.models.device import Device, DeviceState
+from pyfreepbx.models.device import (
+    Device,
+    DeviceState,
+    normalize_device_state,
+    normalize_sip_status,
+)
 from pyfreepbx.models.queue import QueueStats
 from pyfreepbx.models.system import SystemInfo
 
@@ -701,18 +706,7 @@ def _parse_uptime(date_str: str, time_str: str) -> int:
 
 def _parse_device_state(raw: str) -> DeviceState:
     """Map AMI DeviceState strings to the DeviceState enum."""
-    lower = raw.lower()
-    if "not_inuse" in lower or "inuse" in lower:
-        return DeviceState.REGISTERED
-    if "unavailable" in lower:
-        return DeviceState.UNAVAILABLE
-    if "unknown" in lower:
-        return DeviceState.UNKNOWN
-    # DeviceState values: NOT_INUSE, INUSE, BUSY, UNAVAILABLE, RINGING, etc.
-    # If the device reports any active state, it's registered.
-    if lower and lower not in ("unavailable", "unknown"):
-        return DeviceState.REGISTERED
-    return DeviceState.UNKNOWN
+    return normalize_device_state(raw)
 
 
 def _parse_sip_status(raw: str) -> DeviceState:
@@ -721,11 +715,4 @@ def _parse_sip_status(raw: str) -> DeviceState:
     SIPpeers Status examples: "OK (1 ms)", "UNKNOWN", "Unmonitored",
     "UNREACHABLE", "Lagged (123 ms)"
     """
-    upper = raw.upper()
-    if upper.startswith("OK") or upper.startswith("LAGGED"):
-        return DeviceState.REGISTERED
-    if "UNREACHABLE" in upper:
-        return DeviceState.UNREGISTERED
-    if "UNKNOWN" in upper or "UNMONITORED" in upper:
-        return DeviceState.UNKNOWN
-    return DeviceState.UNKNOWN
+    return normalize_sip_status(raw)

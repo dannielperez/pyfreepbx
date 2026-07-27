@@ -447,6 +447,8 @@ class TestStateHelpers:
         assert _parse_device_state("UNKNOWN") == DeviceState.UNKNOWN
         assert _parse_device_state("Ringing") == DeviceState.REGISTERED
         assert _parse_device_state("") == DeviceState.UNKNOWN
+        # An endpoint Asterisk cannot find is not a registered endpoint.
+        assert _parse_device_state("not_found") == DeviceState.UNREGISTERED
 
     def test_parse_sip_status(self) -> None:
         assert _parse_sip_status("OK (1 ms)") == DeviceState.REGISTERED
