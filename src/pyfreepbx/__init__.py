@@ -17,11 +17,18 @@ from pyfreepbx.exceptions import (
     NotSupportedError,
 )
 from pyfreepbx.facade import FreePBX
+from pyfreepbx.models.endpoint_state import (
+    ENDPOINT_STATE_NOT_FOUND,
+    ENDPOINT_STATE_TO_DEVICE_STATE,
+    normalize_registration_state,
+)
 from pyfreepbx.models.events import AMIEvent
 from pyfreepbx.models.health import StatusResult
 from pyfreepbx.services.firewall import FirewallReplacementResult, FirewallReplacementState
 
 __all__ = [
+    "ENDPOINT_STATE_NOT_FOUND",
+    "ENDPOINT_STATE_TO_DEVICE_STATE",
     "AMIAuthError",
     "AMIConnectionError",
     "AMIError",
@@ -41,4 +48,5 @@ __all__ = [
     "NotSupportedError",
     "StatusResult",
     "__version__",
+    "normalize_registration_state",
 ]
