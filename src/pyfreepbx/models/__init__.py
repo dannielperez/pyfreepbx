@@ -3,7 +3,12 @@
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.call import OriginateResult
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
-from pyfreepbx.models.device import Device, DeviceState
+from pyfreepbx.models.device import (
+    Device,
+    DeviceState,
+    normalize_device_state,
+    normalize_sip_status,
+)
 from pyfreepbx.models.endpoint_state import (
     ENDPOINT_STATE_NOT_FOUND,
     ENDPOINT_STATE_TO_DEVICE_STATE,
@@ -50,5 +55,7 @@ __all__ = [
     "QueueStats",
     "StatusResult",
     "SystemInfo",
+    "normalize_device_state",
     "normalize_registration_state",
+    "normalize_sip_status",
 ]
