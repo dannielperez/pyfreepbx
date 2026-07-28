@@ -63,6 +63,19 @@ class NewstateEvent(AMIEvent):
     channel_state_desc: str | None = None
 
 
+class NewConnectedLineEvent(AMIEvent):
+    """A channel learned updated caller/connected-line identity."""
+
+    channel_state: str | None = None
+    channel_state_desc: str | None = None
+    caller_id_num: str | None = None
+    caller_id_name: str | None = None
+    connected_line_num: str | None = None
+    connected_line_name: str | None = None
+    exten: str | None = None
+    context: str | None = None
+
+
 class HangupEvent(AMIEvent):
     """A channel was torn down — ``Hangup``.
 
@@ -237,6 +250,7 @@ __all__ = [
     "DialBeginEvent",
     "DialEndEvent",
     "HangupEvent",
+    "NewConnectedLineEvent",
     "NewchannelEvent",
     "NewstateEvent",
     "OriginateResponseEvent",
