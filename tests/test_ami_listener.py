@@ -95,7 +95,10 @@ def _run(payload: bytes, *, chunk_size: int | None = None, **kwargs: object) -> 
 _EXPECTED = {
     "answered.txt": [
         "Newchannel",
+        "NewConnectedLine",
+        "NewConnectedLine",
         "Newchannel",
+        "NewConnectedLine",
         "DialBegin",
         "Newstate",
         "Newstate",
@@ -108,8 +111,12 @@ _EXPECTED = {
     ],
     "missed.txt": [
         "Newchannel",
+        "NewConnectedLine",
+        "NewConnectedLine",
         "Newchannel",
+        "NewConnectedLine",
         "DialBegin",
+        "NewConnectedLine",
         "Newstate",
         "DialEnd",
         "Hangup",
@@ -119,6 +126,10 @@ _EXPECTED = {
     "originate.txt": [
         "Newchannel",
         "Newchannel",
+        "NewConnectedLine",
+        "NewConnectedLine",
+        "NewConnectedLine",
+        "NewConnectedLine",
         "OriginateResponse",
         "Newstate",
         "Newstate",
