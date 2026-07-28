@@ -30,6 +30,7 @@ from pyfreepbx.models.events import (
     DialEndEvent,
     HangupEvent,
     NewchannelEvent,
+    NewConnectedLineEvent,
     NewstateEvent,
     OriginateResponseEvent,
     QueueCallerAbandonEvent,
@@ -52,6 +53,19 @@ _FIELD_MAP: dict[str, tuple[type[AMIEvent], dict[str, str]]] = {
     "Newstate": (
         NewstateEvent,
         {"channel_state": "ChannelState", "channel_state_desc": "ChannelStateDesc"},
+    ),
+    "NewConnectedLine": (
+        NewConnectedLineEvent,
+        {
+            "channel_state": "ChannelState",
+            "channel_state_desc": "ChannelStateDesc",
+            "caller_id_num": "CallerIDNum",
+            "caller_id_name": "CallerIDName",
+            "connected_line_num": "ConnectedLineNum",
+            "connected_line_name": "ConnectedLineName",
+            "exten": "Exten",
+            "context": "Context",
+        },
     ),
     "Hangup": (HangupEvent, {"cause": "Cause", "cause_txt": "Cause-txt"}),
     "DialBegin": (

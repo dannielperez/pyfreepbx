@@ -22,6 +22,7 @@ from pyfreepbx.models.events import (
     DialEndEvent,
     HangupEvent,
     NewchannelEvent,
+    NewConnectedLineEvent,
     NewstateEvent,
     OriginateResponseEvent,
     QueueCallerAbandonEvent,
@@ -81,6 +82,14 @@ class TestChannelLifecycle:
         assert isinstance(ev, NewstateEvent)
         assert ev.channel_state == "5"
         assert ev.channel_state_desc == "Ringing"
+
+    def test_new_connected_line_promotes_endpoint_identity(self) -> None:
+        ev = _parse_first("answered.txt", "NewConnectedLine")
+        assert isinstance(ev, NewConnectedLineEvent)
+        assert ev.caller_id_num == "7001"
+        assert ev.connected_line_num == "7002"
+        assert ev.exten == "7002"
+        assert ev.uniqueid and ev.linkedid
 
     def test_hangup_cause_is_metadata(self) -> None:
         ev = _parse_first("answered.txt", "Hangup")
@@ -156,14 +165,19 @@ class TestOriginate:
 
 class TestNormalizationAndUnknown:
     def test_unknown_event_passthrough(self) -> None:
-        # NewConnectedLine is not modelled -> UnknownEvent, raw preserved.
-        ev = _parse_first("answered.txt", "NewConnectedLine")
+        ev = parse_event(
+            {"Event": "UnmodelledEvent", "Uniqueid": "1", "Linkedid": "1"},
+            received_at=123.0,
+        )
         assert isinstance(ev, UnknownEvent)
-        assert ev.event == "NewConnectedLine"
-        assert ev.raw["Event"] == "NewConnectedLine"
+        assert ev.event == "UnmodelledEvent"
+        assert ev.raw["Event"] == "UnmodelledEvent"
 
     def test_unmodelled_keeps_base_correlation_fields(self) -> None:
-        ev = _parse_first("answered.txt", "NewConnectedLine")
+        ev = parse_event(
+            {"Event": "UnmodelledEvent", "Uniqueid": "1", "Linkedid": "1"},
+            received_at=123.0,
+        )
         assert ev.uniqueid and ev.linkedid  # base fields still normalized
 
     def test_linkedid_present_on_standard_events(self) -> None:
@@ -172,7 +186,13 @@ class TestNormalizationAndUnknown:
 
     def test_every_known_event_name_has_a_dto(self) -> None:
         # guards the parser map against silent drift
-        assert {"Newchannel", "DialEnd", "AgentConnect", "OriginateResponse"} <= KNOWN_EVENTS
+        assert {
+            "Newchannel",
+            "NewConnectedLine",
+            "DialEnd",
+            "AgentConnect",
+            "OriginateResponse",
+        } <= KNOWN_EVENTS
 
 
 class TestTransfersSynthetic:
