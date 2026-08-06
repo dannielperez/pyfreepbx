@@ -42,7 +42,7 @@ from typing import TYPE_CHECKING, Any
 from pyfreepbx.clients.base import BaseClient
 from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError, AMITimeout
 from pyfreepbx.logging import get_logger
-from pyfreepbx.models.call import OriginateResult
+from pyfreepbx.models.call import ActiveChannel, HangupResult, OriginateResult
 from pyfreepbx.models.device import (
     Device,
     DeviceState,
@@ -537,6 +537,66 @@ class AMIClient(BaseClient):
             channel=channel,
             extension=extension,
             context=context,
+            response=response.get("Response", ""),
+            message=response.get("Message", ""),
+        )
+
+    def active_channels(self, *, linked_id: str = "") -> list[ActiveChannel]:
+        """Return typed live channels, optionally restricted to one linked id."""
+        self._require_auth()
+        channels: list[ActiveChannel] = []
+        for event in self._collect_events("CoreShowChannels"):
+            if event.get("Event") != "CoreShowChannel":
+                continue
+            event_linked_id = event.get("Linkedid", "")
+            if linked_id and event_linked_id != linked_id:
+                continue
+            channels.append(
+                ActiveChannel(
+                    channel=event.get("Channel", ""),
+                    unique_id=event.get("Uniqueid", ""),
+                    linked_id=event_linked_id,
+                    state=event.get("ChannelStateDesc", ""),
+                    caller_id_num=event.get("CallerIDNum", ""),
+                    connected_line_num=event.get("ConnectedLineNum", ""),
+                )
+            )
+        return channels
+
+    def hangup_channel(self, *, channel: str, linked_id: str) -> HangupResult:
+        """Request hangup only after revalidating an exact live call identity.
+
+        Both values are mandatory. The read-before-write guard prevents a stale
+        channel name from terminating a later, unrelated call after Asterisk has
+        recycled identifiers. This method never retries the ``Hangup`` action.
+        """
+        self._require_auth()
+        if not channel or not linked_id:
+            raise ValueError("channel and linked_id are required")
+
+        matches = [
+            item
+            for item in self.active_channels(linked_id=linked_id)
+            if item.channel == channel
+        ]
+        if len(matches) != 1:
+            return HangupResult(
+                channel=channel,
+                linked_id=linked_id,
+                attempted=False,
+                response="NotFound" if not matches else "Ambiguous",
+                message=(
+                    "The exact live channel was not found."
+                    if not matches
+                    else "More than one live channel matched the exact identity."
+                ),
+            )
+
+        response = self._send_action("Hangup", Channel=channel)
+        return HangupResult(
+            channel=channel,
+            linked_id=linked_id,
+            attempted=True,
             response=response.get("Response", ""),
             message=response.get("Message", ""),
         )

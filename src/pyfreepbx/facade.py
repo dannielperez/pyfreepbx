@@ -42,7 +42,7 @@ from pyfreepbx.services.recordings import RecordingService
 from pyfreepbx.services.system import SystemService
 
 if TYPE_CHECKING:
-    from pyfreepbx.models.call import OriginateResult
+    from pyfreepbx.models.call import HangupResult, OriginateResult
 
 log = get_logger("facade")
 
@@ -370,6 +370,14 @@ class FreePBX:
         if not self._ami_client.authenticated:
             self.connect_ami()
         return self._ami_client.originate(**kwargs)  # type: ignore[arg-type]
+
+    def hangup_channel(self, *, channel: str, linked_id: str) -> HangupResult:
+        """Request an exact live-channel hangup through the typed AMI client."""
+        if self._ami_client is None:
+            raise ConfigError("AMI is not configured. Provide ami_username and ami_secret.")
+        if not self._ami_client.authenticated:
+            self.connect_ami()
+        return self._ami_client.hangup_channel(channel=channel, linked_id=linked_id)
 
     # ------------------------------------------------------------------
     # Combined queries

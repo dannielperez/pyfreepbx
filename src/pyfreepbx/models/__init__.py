@@ -1,7 +1,7 @@
 """Pydantic models for pyfreepbx."""
 
 from pyfreepbx.models.asterisk import AsteriskSummary
-from pyfreepbx.models.call import OriginateResult
+from pyfreepbx.models.call import ActiveChannel, HangupResult, OriginateResult
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
 from pyfreepbx.models.device import (
     Device,
@@ -31,6 +31,7 @@ from pyfreepbx.models.system import ApplyConfigResult, ConfigReloadStatus, Syste
 __all__ = [
     "ENDPOINT_STATE_NOT_FOUND",
     "ENDPOINT_STATE_TO_DEVICE_STATE",
+    "ActiveChannel",
     "ApplyConfigResult",
     "AsteriskLogLine",
     "AsteriskLogResult",
@@ -45,6 +46,7 @@ __all__ = [
     "ExtensionType",
     "FirewallNetwork",
     "FirewallZone",
+    "HangupResult",
     "HealthCheck",
     "HealthStatus",
     "HealthSummary",
