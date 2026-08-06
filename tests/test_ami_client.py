@@ -11,6 +11,7 @@ import pytest
 from pyfreepbx.clients.ami import AMIClient, _parse_device_state, _parse_sip_status, _parse_uptime
 from pyfreepbx.config import AMIConfig
 from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError
+from pyfreepbx.models.call import ActiveChannel
 from pyfreepbx.models.device import DeviceState
 
 
@@ -437,6 +438,92 @@ class TestOriginate:
     def test_originate_requires_auth(self, client: AMIClient) -> None:
         with pytest.raises(AMIError, match="Not connected"):
             client.originate(channel="Local/2001@from-internal", extension="1500")
+
+
+class TestHangup:
+    def test_active_channels_maps_and_filters_linked_id(self, client: AMIClient) -> None:
+        _make_connected(client)
+        events = [
+            {
+                "Event": "CoreShowChannel",
+                "Channel": "PJSIP/door-0001",
+                "Uniqueid": "1700.1",
+                "Linkedid": "1700.1",
+                "ChannelStateDesc": "Up",
+                "CallerIDNum": "door",
+                "ConnectedLineNum": "600",
+            },
+            {
+                "Event": "CoreShowChannel",
+                "Channel": "PJSIP/other-0002",
+                "Uniqueid": "1700.2",
+                "Linkedid": "1700.2",
+            },
+        ]
+        with patch.object(client, "_collect_events", return_value=events):
+            result = client.active_channels(linked_id="1700.1")
+
+        assert result == [
+            ActiveChannel(
+                channel="PJSIP/door-0001",
+                unique_id="1700.1",
+                linked_id="1700.1",
+                state="Up",
+                caller_id_num="door",
+                connected_line_num="600",
+            )
+        ]
+
+    def test_hangup_revalidates_exact_channel_before_write(self, client: AMIClient) -> None:
+        _make_connected(client)
+        channels = [
+            ActiveChannel(
+                channel="PJSIP/door-0001",
+                unique_id="1700.1",
+                linked_id="1700.1",
+            )
+        ]
+        with (
+            patch.object(client, "active_channels", return_value=channels),
+            patch.object(
+                client,
+                "_send_action",
+                return_value={"Response": "Success", "Message": "Channel Hungup"},
+            ) as send,
+        ):
+            result = client.hangup_channel(
+                channel="PJSIP/door-0001",
+                linked_id="1700.1",
+            )
+
+        assert result.accepted is True
+        send.assert_called_once_with("Hangup", Channel="PJSIP/door-0001")
+
+    def test_hangup_stale_channel_does_not_write(self, client: AMIClient) -> None:
+        _make_connected(client)
+        with (
+            patch.object(client, "active_channels", return_value=[]),
+            patch.object(client, "_send_action") as send,
+        ):
+            result = client.hangup_channel(
+                channel="PJSIP/door-stale",
+                linked_id="1700.1",
+            )
+
+        assert result.attempted is False
+        assert result.response == "NotFound"
+        send.assert_not_called()
+
+    @pytest.mark.parametrize("channel,linked_id", [("", "1700.1"), ("PJSIP/door", "")])
+    def test_hangup_requires_both_exact_identifiers(
+        self,
+        client: AMIClient,
+        channel: str,
+        linked_id: str,
+    ) -> None:
+        _make_connected(client)
+        with pytest.raises(ValueError, match="channel and linked_id are required"):
+            client.hangup_channel(channel=channel, linked_id=linked_id)
 
 
 class TestStateHelpers:

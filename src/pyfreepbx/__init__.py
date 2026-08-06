@@ -17,6 +17,7 @@ from pyfreepbx.exceptions import (
     NotSupportedError,
 )
 from pyfreepbx.facade import FreePBX
+from pyfreepbx.models.call import ActiveChannel, HangupResult
 from pyfreepbx.models.endpoint_state import (
     ENDPOINT_STATE_NOT_FOUND,
     ENDPOINT_STATE_TO_DEVICE_STATE,
@@ -34,6 +35,7 @@ __all__ = [
     "AMIError",
     "AMIEvent",
     "AMIEventListener",
+    "ActiveChannel",
     "AuthenticationError",
     "ConfigError",
     "FirewallReplacementResult",
@@ -44,6 +46,7 @@ __all__ = [
     "FreePBXTransportError",
     "FreePBXValidationError",
     "GraphQLError",
+    "HangupResult",
     "NotFoundError",
     "NotSupportedError",
     "StatusResult",
