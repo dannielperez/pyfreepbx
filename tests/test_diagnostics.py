@@ -38,6 +38,33 @@ class TestDiagnosticsServiceEndpointDetails:
         assert details["ip_address"] == "10.0.0.55"
         assert details["user_agent"] == "Yealink"
 
+    def test_endpoint_details_lazily_connects_and_logs_in(self) -> None:
+        """The facade hands over an unconnected AMIClient; the read must open
+        the session itself instead of raising ``Not connected to AMI``."""
+        ami = MagicMock()
+        ami.connected = False
+        ami.authenticated = False
+        ami.pjsip_endpoint.return_value = []
+        svc = DiagnosticsService(ami=ami)
+
+        svc.endpoint_details("1001")
+
+        ami.connect.assert_called_once_with()
+        ami.login.assert_called_once_with()
+        ami.pjsip_endpoint.assert_called_once_with("1001")
+
+    def test_endpoint_details_reuses_an_authenticated_session(self) -> None:
+        ami = MagicMock()
+        ami.connected = True
+        ami.authenticated = True
+        ami.pjsip_endpoint.return_value = []
+        svc = DiagnosticsService(ami=ami)
+
+        svc.endpoint_details("1001")
+
+        ami.connect.assert_not_called()
+        ami.login.assert_not_called()
+
 
 class TestDiagnosticsServiceAsteriskSummary:
     def test_summary_without_ami(self) -> None:
@@ -45,6 +72,19 @@ class TestDiagnosticsServiceAsteriskSummary:
         summary = svc.asterisk_summary()
         assert summary.active_calls == 0
         assert summary.endpoint_total == 0
+
+    def test_summary_lazily_connects_and_logs_in(self) -> None:
+        ami = MagicMock()
+        ami.connected = False
+        ami.authenticated = False
+        ami.core_status.return_value = SystemInfo(asterisk_version="20.6.0", active_calls=0)
+        ami.pjsip_endpoints.return_value = []
+        ami.run_action_with_events.return_value = []
+
+        DiagnosticsService(ami=ami).asterisk_summary()
+
+        ami.connect.assert_called_once_with()
+        ami.login.assert_called_once_with()
 
     def test_summary_with_ami(self) -> None:
         ami = MagicMock()
