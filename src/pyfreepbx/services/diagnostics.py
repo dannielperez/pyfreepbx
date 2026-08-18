@@ -78,6 +78,30 @@ class DiagnosticsService:
         self._client = client
         self._cdr_db = cdr_db
 
+    def _ensure_ami_session(self) -> bool:
+        """Connect + authenticate the AMI client on demand.
+
+        Mirrors :meth:`HealthService._ensure_ami_session`: the facade hands
+        this service a *configured but unconnected* :class:`AMIClient`, so
+        every AMI-backed read funnels through here. Before this existed,
+        ``endpoint_details``/``asterisk_summary`` called straight into the
+        socket and every AMI-configured consumer raised
+        ``AMIError("Not connected to AMI. Call connect() first.")`` — observed
+        live 2026-08-18 as one traceback per extension in a 160-extension
+        sweep until its soft time limit fired.
+
+        Returns ``False`` when AMI is unconfigured. Raises the underlying
+        ``AMIError``/``AMIAuthError``/``OSError`` when a configured session
+        cannot be established — callers decide how to degrade.
+        """
+        if self._ami is None:
+            return False
+        if not self._ami.connected:
+            self._ami.connect()
+        if not self._ami.authenticated:
+            self._ami.login()
+        return True
+
     def cdr(
         self,
         *,
@@ -192,7 +216,7 @@ class DiagnosticsService:
 
     def endpoint_details(self, extension: str) -> dict[str, Any]:
         """Fetch endpoint detail via AMI when available."""
-        if self._ami is None:
+        if self._ami is None or not self._ensure_ami_session():
             return {
                 "extension": extension,
                 "state": "unknown",
@@ -225,7 +249,7 @@ class DiagnosticsService:
 
     def asterisk_summary(self) -> AsteriskSummary:
         """Build a compact Asterisk summary from AMI data when available."""
-        if self._ami is None:
+        if self._ami is None or not self._ensure_ami_session():
             return AsteriskSummary()
 
         core = self._ami.core_status()
