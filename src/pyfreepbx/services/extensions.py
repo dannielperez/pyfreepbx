@@ -68,6 +68,14 @@ class ExtensionService:
             raise NotFoundError(f"Extension {extension_id!r} not found")
         return Extension.model_validate(raw)
 
+    def get_secret(self, extension_id: str) -> str | None:
+        """Fetch the configured SIP secret for one fixed extension.
+
+        The plaintext is returned only to the caller and is never logged.
+        ``None`` means FreePBX did not expose a secret for this extension.
+        """
+        return self._client.fetch_extension_secret(extension_id)
+
     def create(self, payload: ExtensionCreate) -> Extension:
         """Create a new extension via the FreePBX GraphQL API.
 

@@ -62,6 +62,19 @@ query FetchExtension($extensionId: String!) {
 }
 """
 
+FETCH_EXTENSION_SECRET = """\
+query FetchExtensionSecret($extensionId: ID!) {
+    fetchExtension(extensionId: $extensionId) {
+        status
+        message
+        user {
+            extension
+            extPassword
+        }
+    }
+}
+"""
+
 ADD_EXTENSION = """\
 mutation AddExtension($input: addExtensionInput!) {
     addExtension(input: $input) {
@@ -225,6 +238,26 @@ class FreePBXClient:
         if not ext:
             return None
         return ext.get("user", ext)
+
+    def fetch_extension_secret(self, extension_id: str) -> str | None:
+        """Fetch the configured SIP secret for one fixed extension.
+
+        FreePBX Core 16/17 exposes ``coreuser.extPassword`` and resolves it via
+        ``Core->getSipSecret()``. Keep this separate from normal inventory reads
+        so secrets never enter bulk extension payloads or debug logging.
+        """
+        data = self._gql.query(
+            FETCH_EXTENSION_SECRET,
+            variables={"extensionId": extension_id},
+        )
+        result = data.get("fetchExtension")
+        if not isinstance(result, dict) or result.get("status") is not True:
+            return None
+        user = result.get("user")
+        if not isinstance(user, dict):
+            return None
+        secret = user.get("extPassword")
+        return secret if isinstance(secret, str) and secret else None
 
     def add_extension(self, input_data: dict[str, Any]) -> dict[str, Any]:
         """Create an extension with the live-confirmed FreePBX mutation."""

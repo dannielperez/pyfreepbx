@@ -66,6 +66,17 @@ class TestExtensionService:
         with pytest.raises(NotFoundError):
             svc.get("9999")
 
+    def test_get_secret_uses_sensitive_single_extension_read(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.fetch_extension_secret.return_value = "existing-secret"
+
+        result = ExtensionService(mock_freepbx_client).get_secret("1001")
+
+        assert result == "existing-secret"
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+
     def test_create_uses_graphql_and_refetches(self, mock_freepbx_client: MagicMock) -> None:
         mock_freepbx_client.add_extension.return_value = {
             "status": True,
