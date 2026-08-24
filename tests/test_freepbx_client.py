@@ -118,6 +118,62 @@ class TestFetchAllExtensions:
         assert client.fetch_all_extensions() == []
 
 
+class TestFetchExtensionSecret:
+    @respx.mock
+    def test_reads_ext_password_from_fixed_extension_user(
+        self,
+        config: FreePBXConfig,
+    ) -> None:
+        route = respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "fetchExtension": {
+                            "status": True,
+                            "message": "Extension found successfully",
+                            "user": {
+                                "extension": "1201",
+                                "extPassword": "existing-secret",
+                            },
+                        }
+                    }
+                },
+            ),
+        )
+
+        result = FreePBXClient(config).fetch_extension_secret("1201")
+
+        assert result == "existing-secret"
+        request_body = route.calls[0].request.content
+        assert b"query FetchExtensionSecret" in request_body
+        assert b"extPassword" in request_body
+        assert b'"extensionId":"1201"' in request_body
+
+    @respx.mock
+    @pytest.mark.parametrize(
+        "fetch_extension",
+        [
+            {"status": False, "message": "Extension does not exist"},
+            {"status": True, "user": None},
+            {"status": True, "user": {"extension": "1201", "extPassword": ""}},
+        ],
+    )
+    def test_missing_or_unavailable_secret_returns_none(
+        self,
+        config: FreePBXConfig,
+        fetch_extension: dict[str, object],
+    ) -> None:
+        respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": {"fetchExtension": fetch_extension}},
+            ),
+        )
+
+        assert FreePBXClient(config).fetch_extension_secret("1201") is None
+
+
 class TestFetchFirewallConfiguration:
     @respx.mock
     def test_parses_live_configuration_key(self, config: FreePBXConfig) -> None:
