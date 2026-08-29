@@ -10,7 +10,7 @@ from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
 from pyfreepbx.schemas.firewall_create import FirewallNetworkCreate
 from pyfreepbx.schemas.firewall_update import FirewallNetworkUpdate
-from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberRemove
+from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberPause, QueueMemberRemove
 
 __all__ = [
     "ExtensionCreate",
@@ -18,5 +18,6 @@ __all__ = [
     "FirewallNetworkCreate",
     "FirewallNetworkUpdate",
     "QueueMemberAdd",
+    "QueueMemberPause",
     "QueueMemberRemove",
 ]

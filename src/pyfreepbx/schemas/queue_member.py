@@ -26,3 +26,12 @@ class QueueMemberRemove(BaseModel):
 
     queue: str = Field(description="Queue number or name")
     extension: str = Field(description="Member extension to remove")
+
+
+class QueueMemberPause(BaseModel):
+    """Input for pausing/unpausing a runtime queue member."""
+
+    queue: str = Field(description="Queue number or name")
+    extension: str = Field(description="Member extension to pause/unpause")
+    paused: bool = Field(description="True to pause, False to resume")
+    reason: str = Field(default="", description="Optional pause reason")

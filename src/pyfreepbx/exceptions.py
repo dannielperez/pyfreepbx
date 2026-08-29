@@ -49,6 +49,14 @@ class NotFoundError(FreePBXError):
     """Requested resource was not found."""
 
 
+class QueueMemberNotFoundError(AMIError):
+    """A runtime queue-member operation targeted a member/queue that is absent.
+
+    Raised so consumers can treat "already removed" as an idempotent success
+    instead of substring-matching Asterisk's English error text.
+    """
+
+
 class NotSupportedError(FreePBXError):
     """Operation is not supported by the current backend.
 

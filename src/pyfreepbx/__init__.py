@@ -15,6 +15,7 @@ from pyfreepbx.exceptions import (
     GraphQLError,
     NotFoundError,
     NotSupportedError,
+    QueueMemberNotFoundError,
 )
 from pyfreepbx.facade import FreePBX
 from pyfreepbx.models.call import ActiveChannel, HangupResult
@@ -48,6 +49,7 @@ __all__ = [
     "GraphQLError",
     "HangupResult",
     "NotFoundError",
+    "QueueMemberNotFoundError",
     "NotSupportedError",
     "StatusResult",
     "__version__",

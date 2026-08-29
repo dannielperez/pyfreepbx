@@ -6,9 +6,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pyfreepbx.exceptions import NotFoundError
+from pyfreepbx.exceptions import NotFoundError, QueueMemberNotFoundError
 from pyfreepbx.models.queue import QueueStats
-from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberRemove
+from pyfreepbx.schemas.queue_member import (
+    QueueMemberAdd,
+    QueueMemberPause,
+    QueueMemberRemove,
+)
 from pyfreepbx.services.queues import QueueService
 
 if TYPE_CHECKING:
@@ -201,3 +205,66 @@ class TestQueueMemberManagement:
         svc = QueueService(mock_freepbx_client, ami=None)
         with pytest.raises(RuntimeError, match="AMI client is required"):
             svc.add_member_runtime(QueueMemberAdd(queue="400", extension="1001"))
+
+    def test_remove_member_runtime_absent_member_raises_typed_error(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.run_action.return_value = {
+            "Response": "Error",
+            "Message": "Unable to remove interface: Not there",
+        }
+
+        svc = QueueService(mock_freepbx_client, mock_ami)
+        with pytest.raises(QueueMemberNotFoundError):
+            svc.remove_member_runtime(QueueMemberRemove(queue="400", extension="1001"))
+
+    def test_remove_member_runtime_absent_queue_raises_typed_error(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.run_action.return_value = {
+            "Response": "Error",
+            "Message": "No such queue",
+        }
+
+        svc = QueueService(mock_freepbx_client, mock_ami)
+        with pytest.raises(QueueMemberNotFoundError):
+            svc.remove_member_runtime(QueueMemberRemove(queue="999", extension="1001"))
+
+    def test_pause_member_runtime_uses_the_shared_member_interface(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        svc = QueueService(mock_freepbx_client, mock_ami)
+        svc.pause_member_runtime(
+            QueueMemberPause(queue="400", extension="1001", paused=True, reason="lunch")
+        )
+
+        mock_ami.queue_pause.assert_called_once_with(
+            queue="400",
+            interface="Local/1001@from-queue/n",
+            paused=True,
+            reason="lunch",
+        )
+
+    def test_pause_member_runtime_omits_a_blank_reason(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        svc = QueueService(mock_freepbx_client, mock_ami)
+        svc.pause_member_runtime(
+            QueueMemberPause(queue="400", extension="1001", paused=False)
+        )
+
+        mock_ami.queue_pause.assert_called_once_with(
+            queue="400",
+            interface="Local/1001@from-queue/n",
+            paused=False,
+            reason=None,
+        )
+
+    def test_pause_member_runtime_without_ami_raises(
+        self, mock_freepbx_client: MagicMock
+    ) -> None:
+        svc = QueueService(mock_freepbx_client, ami=None)
+        with pytest.raises(RuntimeError, match="AMI client is required"):
+            svc.pause_member_runtime(
+                QueueMemberPause(queue="400", extension="1001", paused=True)
+            )

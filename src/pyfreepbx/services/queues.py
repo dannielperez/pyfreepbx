@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING
 
-from pyfreepbx.exceptions import NotFoundError
+from pyfreepbx.exceptions import NotFoundError, QueueMemberNotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
@@ -17,7 +17,11 @@ from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
 if TYPE_CHECKING:
     from pyfreepbx.clients.ami import AMIClient
     from pyfreepbx.clients.freepbx import FreePBXClient
-    from pyfreepbx.schemas.queue_member import QueueMemberAdd, QueueMemberRemove
+    from pyfreepbx.schemas.queue_member import (
+        QueueMemberAdd,
+        QueueMemberPause,
+        QueueMemberRemove,
+    )
 
 log = get_logger("services.queues")
 
@@ -145,7 +149,7 @@ class QueueService:
         resp = self._ami.run_action(
             "QueueAdd",
             Queue=payload.queue,
-            Interface=f"Local/{payload.extension}@from-queue/n",
+            Interface=self._member_interface(payload.extension),
             Penalty=str(payload.penalty),
             MemberName=payload.extension,
         )
@@ -169,13 +173,46 @@ class QueueService:
         resp = self._ami.run_action(
             "QueueRemove",
             Queue=payload.queue,
-            Interface=f"Local/{payload.extension}@from-queue/n",
+            Interface=self._member_interface(payload.extension),
         )
         if resp.get("Response") != "Success":
             msg = resp.get("Message", "QueueRemove failed")
+            # Asterisk reports an already-absent member/queue in English
+            # ("Unable to remove interface: Not there" / "No such queue").
+            # Interpreting that wording is a vendor quirk owned HERE, so
+            # consumers can catch a typed error instead of matching strings.
+            lowered = msg.lower()
+            if "not there" in lowered or "no such" in lowered:
+                raise QueueMemberNotFoundError(msg)
             raise RuntimeError(f"Failed to remove member: {msg}")
 
         log.info("Removed %s from queue %s (runtime)", payload.extension, payload.queue)
+
+    def pause_member_runtime(self, payload: QueueMemberPause) -> None:
+        """Pause/unpause a runtime queue member via AMI QueuePause.
+
+        Targets the same ``Local/<ext>@from-queue/n`` member interface that
+        :meth:`add_member_runtime` creates, so pause always addresses the
+        member QueueAdd registered.
+
+        Args:
+            payload: Validated pause input.
+        """
+        self._require_ami("pause queue member")
+        assert self._ami is not None
+
+        self._ami.queue_pause(
+            queue=payload.queue,
+            interface=self._member_interface(payload.extension),
+            paused=payload.paused,
+            reason=payload.reason or None,
+        )
+        log.info(
+            "%s %s in queue %s (runtime)",
+            "Paused" if payload.paused else "Unpaused",
+            payload.extension,
+            payload.queue,
+        )
 
     # ------------------------------------------------------------------
     # Internals
@@ -187,6 +224,11 @@ class QueueService:
                 f"AMI client is required for {operation}. "
                 "Configure AMI credentials to enable this feature."
             )
+
+    @staticmethod
+    def _member_interface(extension: str) -> str:
+        """The dialplan interface shape shared by QueueAdd/QueueRemove/QueuePause."""
+        return f"Local/{extension}@from-queue/n"
 
     @staticmethod
     def _member_extension(event: dict[str, str]) -> str:
