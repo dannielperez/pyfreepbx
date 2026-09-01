@@ -101,6 +101,20 @@ class TestLogin:
         result = client.login()
         assert result["Response"] == "Success"
         assert client.authenticated
+        sent = mock_sock.sendall.call_args.args[0].decode("utf-8")
+        assert "Events: on\r\n" in sent
+
+    def test_login_can_disable_unsolicited_events(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        client._authenticated = False
+        mock_sock.recv.return_value = (
+            b"Response: Success\r\nMessage: Authentication accepted\r\n\r\n"
+        )
+
+        client.login(events=False)
+
+        sent = mock_sock.sendall.call_args.args[0].decode("utf-8")
+        assert "Events: off\r\n" in sent
 
     def test_login_failure(self, client: AMIClient) -> None:
         mock_sock = _make_connected(client)

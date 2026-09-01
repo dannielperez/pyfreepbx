@@ -224,6 +224,10 @@ class QueueService:
                 f"AMI client is required for {operation}. "
                 "Configure AMI credentials to enable this feature."
             )
+        if not self._ami.connected:
+            self._ami.connect()
+        if not self._ami.authenticated:
+            self._ami.login(events=False)
 
     @staticmethod
     def _member_interface(extension: str) -> str:

@@ -78,6 +78,21 @@ class TestQueueList:
         with pytest.raises(RuntimeError, match="AMI client is required"):
             svc.list()
 
+    def test_list_connects_and_authenticates_ami(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_ami.connected = False
+        mock_ami.authenticated = False
+        mock_ami.queue_summary.return_value = []
+        mock_ami.queue_status.return_value = []
+
+        QueueService(mock_freepbx_client, mock_ami).list()
+
+        mock_ami.connect.assert_called_once_with()
+        mock_ami.login.assert_called_once_with(events=False)
+
 
 class TestQueueGet:
     def test_get_found(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:

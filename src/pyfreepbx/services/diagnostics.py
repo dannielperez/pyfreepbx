@@ -99,7 +99,7 @@ class DiagnosticsService:
         if not self._ami.connected:
             self._ami.connect()
         if not self._ami.authenticated:
-            self._ami.login()
+            self._ami.login(events=False)
         return True
 
     def cdr(
