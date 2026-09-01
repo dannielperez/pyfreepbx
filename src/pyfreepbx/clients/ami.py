@@ -162,8 +162,12 @@ class AMIClient(BaseClient):
         log.info("AMI connected: %s", self._banner)
         return self._banner
 
-    def login(self) -> dict[str, str]:
+    def login(self, *, events: bool = True) -> dict[str, str]:
         """Authenticate with AMI using the configured credentials.
+
+        ``events=False`` is intended for request/response sessions. It prevents
+        unsolicited AMI events from racing typed action responses. Long-lived
+        event listeners retain the AMI default by omitting the argument.
 
         Returns:
             The raw AMI response dict on success.
@@ -179,6 +183,7 @@ class AMIClient(BaseClient):
             "Login",
             Username=self._config.username,
             Secret=self._config.secret,
+            Events="on" if events else "off",
         )
         if response.get("Response") != "Success":
             msg = response.get("Message", "Login failed")

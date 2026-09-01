@@ -50,7 +50,7 @@ class TestDiagnosticsServiceEndpointDetails:
         svc.endpoint_details("1001")
 
         ami.connect.assert_called_once_with()
-        ami.login.assert_called_once_with()
+        ami.login.assert_called_once_with(events=False)
         ami.pjsip_endpoint.assert_called_once_with("1001")
 
     def test_endpoint_details_reuses_an_authenticated_session(self) -> None:
@@ -84,7 +84,7 @@ class TestDiagnosticsServiceAsteriskSummary:
         DiagnosticsService(ami=ami).asterisk_summary()
 
         ami.connect.assert_called_once_with()
-        ami.login.assert_called_once_with()
+        ami.login.assert_called_once_with(events=False)
 
     def test_summary_with_ami(self) -> None:
         ami = MagicMock()
