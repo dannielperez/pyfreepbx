@@ -85,9 +85,15 @@ class ExtensionService:
             FreePBXTransportError: On network failure.
         """
         body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
+        secret = body.pop("extPassword", None)
         log.info("Creating extension %s via GraphQL", payload.extension)
         result = self._client.add_extension(body)
         self._raise_for_failed_mutation("addExtension", result)
+        if isinstance(secret, str) and secret:
+            # FreePBX addExtensionInput does not expose extPassword, while the
+            # update mutation does. Set the generated SIP secret immediately
+            # after creation through that supported field.
+            self.update_secret(payload.extension, secret)
         return self.get(payload.extension)
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:

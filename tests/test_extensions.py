@@ -122,6 +122,27 @@ class TestExtensionService:
             {"name": "Updated Name", "extensionId": "1001"}
         )
 
+    def test_create_sets_secret_through_supported_update_mutation(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.update_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1050",
+            "name": "Visitor",
+        }
+
+        ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(extension="1050", name="Visitor", secret="device-secret")
+        )
+
+        create_input = mock_freepbx_client.add_extension.call_args.args[0]
+        assert "extPassword" not in create_input
+        mock_freepbx_client.update_extension.assert_called_once_with(
+            {"extensionId": "1050", "extPassword": "device-secret"}
+        )
+
     def test_failed_create_is_not_reported_as_success(
         self,
         mock_freepbx_client: MagicMock,
