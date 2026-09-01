@@ -8,6 +8,7 @@ instance (2026-07).
 
 from __future__ import annotations
 
+import hmac
 from typing import TYPE_CHECKING
 
 from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
@@ -85,9 +86,15 @@ class ExtensionService:
             FreePBXTransportError: On network failure.
         """
         body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
+        secret = body.pop("extPassword", None)
         log.info("Creating extension %s via GraphQL", payload.extension)
         result = self._client.add_extension(body)
         self._raise_for_failed_mutation("addExtension", result)
+        if isinstance(secret, str) and secret:
+            # FreePBX addExtensionInput does not expose extPassword, while the
+            # update mutation does. Set the generated SIP secret immediately
+            # after creation through that supported field.
+            self.update_secret(payload.extension, secret)
         return self.get(payload.extension)
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
@@ -118,6 +125,12 @@ class ExtensionService:
         result = self._client.update_extension(
             {"extensionId": extension_id, "extPassword": new_secret}
         )
+        if result.get("status") is True:
+            return
+        observed_secret = self.get_secret(extension_id)
+        if observed_secret and hmac.compare_digest(observed_secret, new_secret):
+            log.info("Verified extension %s secret after null mutation status", extension_id)
+            return
         self._raise_for_failed_mutation("updateExtension", result)
 
     @staticmethod
