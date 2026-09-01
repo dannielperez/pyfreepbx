@@ -123,7 +123,12 @@ class ExtensionService:
         """
         log.info("Rotating secret for extension %s via GraphQL", extension_id)
         result = self._client.update_extension(
-            {"extensionId": extension_id, "extPassword": new_secret}
+            {
+                "extensionId": extension_id,
+                "tech": "pjsip",
+                "channelName": f"PJSIP/{extension_id}",
+                "extPassword": new_secret,
+            }
         )
         if result.get("status") is True:
             return

@@ -140,7 +140,12 @@ class TestExtensionService:
         create_input = mock_freepbx_client.add_extension.call_args.args[0]
         assert "extPassword" not in create_input
         mock_freepbx_client.update_extension.assert_called_once_with(
-            {"extensionId": "1050", "extPassword": "device-secret"}
+            {
+                "extensionId": "1050",
+                "tech": "pjsip",
+                "channelName": "PJSIP/1050",
+                "extPassword": "device-secret",
+            }
         )
 
     def test_failed_create_is_not_reported_as_success(
@@ -167,7 +172,12 @@ class TestExtensionService:
         svc.update_secret("1001", "new-secret")
 
         mock_freepbx_client.update_extension.assert_called_once_with(
-            {"extensionId": "1001", "extPassword": "new-secret"}
+            {
+                "extensionId": "1001",
+                "tech": "pjsip",
+                "channelName": "PJSIP/1001",
+                "extPassword": "new-secret",
+            }
         )
 
     def test_update_secret_verifies_when_mutation_status_is_null(
