@@ -94,7 +94,7 @@ class ExtensionService:
             # FreePBX addExtensionInput does not expose extPassword, while the
             # update mutation does. Set the generated SIP secret immediately
             # after creation through that supported field.
-            self.update_secret(payload.extension, secret)
+            self.update_secret(payload.extension, secret, name=payload.name)
         return self.get(payload.extension)
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
@@ -114,7 +114,7 @@ class ExtensionService:
         self._raise_for_failed_mutation("updateExtension", result)
         return self.get(extension_id)
 
-    def update_secret(self, extension_id: str, new_secret: str) -> None:
+    def update_secret(self, extension_id: str, new_secret: str, *, name: str = "") -> None:
         """Update only the SIP secret for an extension.
 
         Raises:
@@ -127,6 +127,7 @@ class ExtensionService:
                 "extensionId": extension_id,
                 "tech": "pjsip",
                 "channelName": f"PJSIP/{extension_id}",
+                "name": name or extension_id,
                 "extPassword": new_secret,
             }
         )

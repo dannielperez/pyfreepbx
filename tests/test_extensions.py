@@ -144,6 +144,7 @@ class TestExtensionService:
                 "extensionId": "1050",
                 "tech": "pjsip",
                 "channelName": "PJSIP/1050",
+                "name": "Visitor",
                 "extPassword": "device-secret",
             }
         )
@@ -169,13 +170,14 @@ class TestExtensionService:
         }
         svc = ExtensionService(mock_freepbx_client)
 
-        svc.update_secret("1001", "new-secret")
+        svc.update_secret("1001", "new-secret", name="Lobby")
 
         mock_freepbx_client.update_extension.assert_called_once_with(
             {
                 "extensionId": "1001",
                 "tech": "pjsip",
                 "channelName": "PJSIP/1001",
+                "name": "Lobby",
                 "extPassword": "new-secret",
             }
         )
@@ -190,6 +192,8 @@ class TestExtensionService:
         }
         mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
 
-        ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret")
+        ExtensionService(mock_freepbx_client).update_secret(
+            "1001", "new-secret", name="Lobby"
+        )
 
         mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
