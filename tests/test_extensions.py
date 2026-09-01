@@ -97,6 +97,7 @@ class TestExtensionService:
                 "name": "New User",
                 "tech": "pjsip",
                 "vmEnable": False,
+                "email": "",
             }
         )
 

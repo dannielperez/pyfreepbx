@@ -41,8 +41,8 @@ class ExtensionCreate(BaseModel):
         max_length=64,
         description="SIP secret (password). Generated server-side if omitted.",
     )
-    email: str | None = Field(
-        default=None,
+    email: str = Field(
+        default="",
         max_length=200,
-        description="Email address for the extension user",
+        description="Email address for the extension user; empty when not applicable",
     )
