@@ -169,3 +169,17 @@ class TestExtensionService:
         mock_freepbx_client.update_extension.assert_called_once_with(
             {"extensionId": "1001", "extPassword": "new-secret"}
         )
+
+    def test_update_secret_verifies_when_mutation_status_is_null(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.update_extension.return_value = {
+            "status": None,
+            "message": None,
+        }
+        mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
+
+        ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret")
+
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")

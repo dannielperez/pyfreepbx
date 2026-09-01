@@ -8,6 +8,7 @@ instance (2026-07).
 
 from __future__ import annotations
 
+import hmac
 from typing import TYPE_CHECKING
 
 from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
@@ -124,6 +125,12 @@ class ExtensionService:
         result = self._client.update_extension(
             {"extensionId": extension_id, "extPassword": new_secret}
         )
+        if result.get("status") is True:
+            return
+        observed_secret = self.get_secret(extension_id)
+        if observed_secret and hmac.compare_digest(observed_secret, new_secret):
+            log.info("Verified extension %s secret after null mutation status", extension_id)
+            return
         self._raise_for_failed_mutation("updateExtension", result)
 
     @staticmethod
