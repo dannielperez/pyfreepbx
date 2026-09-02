@@ -54,7 +54,7 @@ query FetchExtension($extensionId: String!) {
         message
         extension {
             user {
-                extension
+                extension: extensionId
                 name
             }
         }

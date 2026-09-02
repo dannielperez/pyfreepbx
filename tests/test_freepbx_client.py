@@ -118,6 +118,40 @@ class TestFetchAllExtensions:
         assert client.fetch_all_extensions() == []
 
 
+class TestFetchExtension:
+    @respx.mock
+    def test_uses_live_extension_id_field_with_normalized_alias(
+        self,
+        config: FreePBXConfig,
+    ) -> None:
+        route = respx.post(config.graphql_url).mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "fetchExtension": {
+                            "status": True,
+                            "message": "Extension found successfully",
+                            "extension": {
+                                "user": {
+                                    "extension": "101",
+                                    "name": "Guardia 1",
+                                },
+                            },
+                        },
+                    },
+                },
+            ),
+        )
+
+        result = FreePBXClient(config).fetch_extension("101")
+
+        assert result == {"extension": "101", "name": "Guardia 1"}
+        request_body = route.calls[0].request.content
+        assert b"extension: extensionId" in request_body
+        assert b'"extensionId":"101"' in request_body
+
+
 class TestFetchExtensionSecret:
     @respx.mock
     def test_reads_ext_password_from_fixed_extension_user(
