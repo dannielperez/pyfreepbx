@@ -11,7 +11,7 @@ from __future__ import annotations
 import hmac
 from typing import TYPE_CHECKING
 
-from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
+from pyfreepbx.exceptions import FreePBXTimeoutError, FreePBXValidationError, NotFoundError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
 from pyfreepbx.models.inventory import InventoryListResult
@@ -88,14 +88,26 @@ class ExtensionService:
         body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
         secret = body.pop("extPassword", None)
         log.info("Creating extension %s via GraphQL", payload.extension)
-        result = self._client.add_extension(body)
-        self._raise_for_failed_mutation("addExtension", result)
+        recovered: Extension | None = None
+        try:
+            result = self._client.add_extension(body)
+        except FreePBXTimeoutError as exc:
+            recovered = self._matching_extension_after_timeout(payload, exc)
+        else:
+            self._raise_for_failed_mutation("addExtension", result)
         if isinstance(secret, str) and secret:
             # FreePBX addExtensionInput does not expose extPassword, while the
             # update mutation does. Set the generated SIP secret immediately
             # after creation through that supported field.
             self.update_secret(payload.extension, secret, name=payload.name)
-        return self.get(payload.extension)
+        if recovered is not None:
+            return recovered
+        try:
+            return self.get(payload.extension)
+        except FreePBXTimeoutError:
+            # The mutation is already confirmed. One bounded retry of this
+            # read-only verification cannot duplicate or alter PBX state.
+            return self.get(payload.extension)
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
         """Update an existing extension via the FreePBX GraphQL API.
@@ -122,15 +134,25 @@ class ExtensionService:
             FreePBXTransportError: On network failure.
         """
         log.info("Rotating secret for extension %s via GraphQL", extension_id)
-        result = self._client.update_extension(
-            {
-                "extensionId": extension_id,
-                "tech": "pjsip",
-                "channelName": f"PJSIP/{extension_id}",
-                "name": name or extension_id,
-                "extPassword": new_secret,
-            }
-        )
+        try:
+            result = self._client.update_extension(
+                {
+                    "extensionId": extension_id,
+                    "tech": "pjsip",
+                    "channelName": f"PJSIP/{extension_id}",
+                    "name": name or extension_id,
+                    "extPassword": new_secret,
+                }
+            )
+        except FreePBXTimeoutError as exc:
+            try:
+                observed_secret = self.get_secret(extension_id)
+            except FreePBXTimeoutError as readback_exc:
+                raise exc from readback_exc
+            if observed_secret and hmac.compare_digest(observed_secret, new_secret):
+                log.info("Verified extension %s secret after mutation timeout", extension_id)
+                return
+            raise
         if result.get("status") is True:
             return
         observed_secret = self.get_secret(extension_id)
@@ -138,6 +160,21 @@ class ExtensionService:
             log.info("Verified extension %s secret after null mutation status", extension_id)
             return
         self._raise_for_failed_mutation("updateExtension", result)
+
+    def _matching_extension_after_timeout(
+        self,
+        payload: ExtensionCreate,
+        timeout: FreePBXTimeoutError,
+    ) -> Extension:
+        """Reconcile an indeterminate create without replaying its mutation."""
+        try:
+            extension = self.get(payload.extension)
+        except (FreePBXTimeoutError, NotFoundError) as readback_exc:
+            raise timeout from readback_exc
+        if extension.extension != payload.extension or extension.name != payload.name:
+            raise timeout
+        log.info("Verified extension %s after mutation timeout", payload.extension)
+        return extension
 
     @staticmethod
     def _raise_for_failed_mutation(operation: str, result: dict[str, object]) -> None:

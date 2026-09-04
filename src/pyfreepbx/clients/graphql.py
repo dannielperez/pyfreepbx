@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from pyfreepbx.clients.base import BaseClient
-from pyfreepbx.config import FreePBXConfig
-from pyfreepbx.exceptions import AuthenticationError, GraphQLError
+from pyfreepbx.exceptions import (
+    AuthenticationError,
+    FreePBXTimeoutError,
+    FreePBXTransportError,
+    GraphQLError,
+)
 from pyfreepbx.logging import get_logger
+
+if TYPE_CHECKING:
+    from pyfreepbx.config import FreePBXConfig
 
 log = get_logger("clients.graphql")
 
@@ -69,7 +76,16 @@ class GraphQLClient(BaseClient):
         log.debug("GraphQL request to %s", self._config.graphql_url)
 
         headers = self._auth_headers()
-        response = self._http.post(self._config.graphql_url, json=payload, headers=headers)
+        try:
+            response = self._http.post(
+                self._config.graphql_url,
+                json=payload,
+                headers=headers,
+            )
+        except httpx.TimeoutException as exc:
+            raise FreePBXTimeoutError("FreePBX GraphQL request timed out") from exc
+        except httpx.TransportError as exc:
+            raise FreePBXTransportError("FreePBX GraphQL transport failed") from exc
 
         if response.status_code in (401, 403):
             log.warning("GraphQL authentication failed: HTTP %d", response.status_code)
@@ -99,7 +115,8 @@ class GraphQLClient(BaseClient):
             log.error("GraphQL error: %s", first_msg)
             raise GraphQLError(first_msg, errors=errors)
 
-        return body.get("data", {})
+        data = body.get("data", {})
+        return data if isinstance(data, dict) else {}
 
     def close(self) -> None:
         self._http.close()

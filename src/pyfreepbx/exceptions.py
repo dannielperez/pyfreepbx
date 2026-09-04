@@ -18,7 +18,7 @@ class AuthenticationError(FreePBXError):
 class GraphQLError(FreePBXError):
     """Error returned by the FreePBX GraphQL API."""
 
-    def __init__(self, message: str, errors: list[dict] | None = None) -> None:
+    def __init__(self, message: str, errors: list[dict[str, object]] | None = None) -> None:
         super().__init__(message)
         self.errors = errors or []
 
@@ -69,7 +69,11 @@ class NotSupportedError(FreePBXError):
 class FreePBXValidationError(FreePBXError):
     """Server rejected the payload due to validation errors (HTTP 422)."""
 
-    def __init__(self, message: str, details: dict | list | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, object] | list[object] | None = None,
+    ) -> None:
         super().__init__(message)
         self.details = details or {}
 
@@ -80,3 +84,7 @@ class FreePBXConflictError(FreePBXError):
 
 class FreePBXTransportError(FreePBXError):
     """Network-level failure (timeout, connection refused, DNS error)."""
+
+
+class FreePBXTimeoutError(FreePBXTransportError):
+    """A bounded FreePBX request timed out with an indeterminate outcome."""

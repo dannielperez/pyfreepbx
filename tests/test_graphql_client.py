@@ -8,7 +8,12 @@ import respx
 
 from pyfreepbx.clients.graphql import GraphQLClient
 from pyfreepbx.config import FreePBXConfig
-from pyfreepbx.exceptions import AuthenticationError, GraphQLError
+from pyfreepbx.exceptions import (
+    AuthenticationError,
+    FreePBXTimeoutError,
+    FreePBXTransportError,
+    GraphQLError,
+)
 
 
 @pytest.fixture
@@ -99,3 +104,28 @@ class TestGraphQLClient:
         client = GraphQLClient(config)
         with pytest.raises(httpx.HTTPStatusError):
             client.query("{ __typename }")
+
+    @respx.mock
+    def test_timeout_is_normalized_to_sdk_exception(self, config: FreePBXConfig) -> None:
+        respx.post(f"{config.graphql_url}").mock(
+            side_effect=httpx.ReadTimeout("response timed out")
+        )
+
+        with pytest.raises(FreePBXTimeoutError) as excinfo:
+            GraphQLClient(config).query("{ __typename }")
+
+        assert isinstance(excinfo.value.__cause__, httpx.ReadTimeout)
+
+    @respx.mock
+    def test_transport_failure_is_normalized_to_sdk_exception(
+        self,
+        config: FreePBXConfig,
+    ) -> None:
+        respx.post(f"{config.graphql_url}").mock(
+            side_effect=httpx.ConnectError("connection refused")
+        )
+
+        with pytest.raises(FreePBXTransportError) as excinfo:
+            GraphQLClient(config).query("{ __typename }")
+
+        assert not isinstance(excinfo.value, FreePBXTimeoutError)
