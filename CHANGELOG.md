@@ -43,6 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `ExtensionService.create()` and `update_secret()` now reconcile an indeterminate
+  GraphQL read timeout through read-back instead of replaying the write. Creation
+  only continues when the requested extension number and name match, secret
+  updates use constant-time comparison, and confirmed creates retry only their
+  final read-only fetch once. This behavior is transport-level and remains
+  compatible across supported FreePBX schema versions.
+- GraphQL timeouts and other network failures now surface as SDK-owned
+  `FreePBXTimeoutError` / `FreePBXTransportError` exceptions instead of leaking
+  `httpx` transport types to consumers.
 - Removed the nonexistent `/rest/cdr` fallback and `/rest/asterisk/logs` diagnostics path; CDR now uses the verified `fetchAllCdrs` GraphQL operation exclusively and propagates failures.
 - Added `hatch-vcs` `fallback-version = "0.0.0"` for Docker builds without VCS metadata.
 - Removed hardcoded example host from `.env.example`.

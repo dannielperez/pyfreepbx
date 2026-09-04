@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pyfreepbx.exceptions import FreePBXValidationError, NotFoundError
+from pyfreepbx.exceptions import FreePBXTimeoutError, FreePBXValidationError, NotFoundError
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
@@ -149,6 +149,70 @@ class TestExtensionService:
             }
         )
 
+    def test_create_reconciles_ambiguous_add_timeout_without_replaying_write(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.side_effect = FreePBXTimeoutError(
+            "response timed out"
+        )
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1050",
+            "name": "Guardia 11",
+        }
+
+        mock_freepbx_client.update_extension.return_value = {"status": True}
+
+        result = ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(
+                extension="1050",
+                name="Guardia 11",
+                secret="device-secret",
+            )
+        )
+
+        assert result.extension == "1050"
+        mock_freepbx_client.add_extension.assert_called_once()
+        mock_freepbx_client.fetch_extension.assert_called_once_with("1050")
+        mock_freepbx_client.update_extension.assert_called_once()
+
+    def test_create_propagates_add_timeout_when_readback_does_not_match(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        timeout = FreePBXTimeoutError("response timed out")
+        mock_freepbx_client.add_extension.side_effect = timeout
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1050",
+            "name": "Existing endpoint",
+        }
+
+        with pytest.raises(FreePBXTimeoutError) as excinfo:
+            ExtensionService(mock_freepbx_client).create(
+                ExtensionCreate(extension="1050", name="Guardia 11")
+            )
+
+        assert excinfo.value is timeout
+        mock_freepbx_client.add_extension.assert_called_once()
+
+    def test_create_retries_only_final_readback_after_confirmed_write_timeout(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.side_effect = [
+            FreePBXTimeoutError("first read timed out"),
+            {"extension": "1050", "name": "Guardia 11"},
+        ]
+
+        result = ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(extension="1050", name="Guardia 11")
+        )
+
+        assert result.extension == "1050"
+        mock_freepbx_client.add_extension.assert_called_once()
+        assert mock_freepbx_client.fetch_extension.call_count == 2
+
     def test_failed_create_is_not_reported_as_success(
         self,
         mock_freepbx_client: MagicMock,
@@ -196,4 +260,20 @@ class TestExtensionService:
             "1001", "new-secret", name="Lobby"
         )
 
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+
+    def test_update_secret_reconciles_ambiguous_timeout_without_replaying_write(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.update_extension.side_effect = FreePBXTimeoutError(
+            "response timed out"
+        )
+        mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
+
+        ExtensionService(mock_freepbx_client).update_secret(
+            "1001", "new-secret", name="Guardia 11"
+        )
+
+        mock_freepbx_client.update_extension.assert_called_once()
         mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
