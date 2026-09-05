@@ -16,7 +16,8 @@
 ## Validation
 
 - Targeted queue/facade/REST tests: `86 passed`.
-- Full SDK: `379 passed, 2 xpassed`. The two XPASS cases are pre-existing
+- Full SDK after rebasing onto the PR #37 merge: `384 passed, 2 xpassed`. The
+  two XPASS cases are pre-existing
   synthetic AMI transfer cases.
   synthetic AMI transfer cases.
 - Ruff check and `git diff --check`: passed.
@@ -33,6 +34,8 @@
   concurrent desired-config writes for the same queue.
 - Multiple new members for one queue can be submitted in one SDK call, so no
   intermediate apply is required before a later member can be reconciled.
+- FreePBX membership position follows REST line order; the SDK preserves the
+  existing order and aligns each new member with its supplied penalty/priority.
 - The method writes desired configuration but intentionally does not reload
   Asterisk. Consumers should perform one bounded `apply_config()` after all
   queue updates in a batch.

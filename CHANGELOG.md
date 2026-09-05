@@ -18,7 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so existing channel types and penalties round-trip exactly, leaves dynamic
   members untouched, requires a positive write acknowledgement, and verifies
   the complete submitted set by read-back. Multiple additions to one queue are
-  written together before callers apply configuration once through
+  written in payload order with their corresponding per-member penalties before
+  callers apply configuration once through
   `SystemService.apply_config()`.
 - `clients.cdr_db.CdrDbReader` — optional read-only direct-DB CDR reader. When DB credentials are supplied to `FreePBX(...)` / `FreePBX.from_url(...)` (`db_host`/`db_user`/`db_password`, plus optional `db_port`/`db_name`/`db_timeout`), `DiagnosticsService.cdr()` reads CDR through a bounded, **sargable** query (`calldate >= %s AND calldate < %s ORDER BY calldate DESC LIMIT %s` — never wrapping `calldate` in a function) that uses the `cdr` table's `calldate` index. This bypasses FreePBX 16's `fetchAllCdrs` GraphQL resolver, which is non-sargable (`WHERE DATE(calldate) …` + `ORDER BY` a computed alias) and full-scans + filesorts on large `cdr` tables — verified to time out on a 6.3M-row table (2026-07-13). The GraphQL path remains the default when no DB credentials are given. Driver (`pymysql`) is imported lazily and lives behind the `cdr-db` optional extra, so the base install stays driver-free.
 - `SystemService.config_reload_status()` and `apply_config()` — typed GraphQL support for FreePBX `fetchNeedReload` and asynchronous `doreload` configuration apply.

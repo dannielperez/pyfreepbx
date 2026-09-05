@@ -283,7 +283,7 @@ class TestQueueMemberManagement:
 
 
 class TestPersistentQueueMemberManagement:
-    def test_ensure_member_reads_merges_and_updates_static_members(
+    def test_ensure_member_preserves_position_and_corresponding_priority(
         self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
     ) -> None:
         rest = MagicMock()

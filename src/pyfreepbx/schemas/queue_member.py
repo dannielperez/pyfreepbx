@@ -18,7 +18,13 @@ class QueueMemberAdd(BaseModel):
 
     queue: str = Field(description="Queue number or name")
     extension: str = Field(description="Member extension to add")
-    penalty: int = Field(default=0, ge=0, description="Agent penalty (lower = higher priority)")
+    penalty: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Per-membership FreePBX penalty/priority (lower penalty = higher priority)"
+        ),
+    )
 
 
 class QueueMemberRemove(BaseModel):

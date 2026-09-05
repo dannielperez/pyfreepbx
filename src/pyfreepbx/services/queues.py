@@ -161,6 +161,8 @@ class QueueService:
         reconciles each configured identifier against authoritative AMI
         ``QueueStatus`` data and fails closed unless every existing static
         member can be reconstructed without losing channel type or penalty.
+        Existing REST order is retained as the stored membership position;
+        additions retain payload order and each payload keeps its own penalty.
 
         This writes desired configuration but does not reload Asterisk. A
         caller performing one or more updates should invoke
