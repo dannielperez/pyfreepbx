@@ -17,20 +17,23 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from pyfreepbx.clients.base import BaseClient
-from pyfreepbx.config import FreePBXConfig
 from pyfreepbx.exceptions import (
     AuthenticationError,
     FreePBXConflictError,
+    FreePBXTimeoutError,
     FreePBXTransportError,
     FreePBXValidationError,
     NotFoundError,
 )
 from pyfreepbx.logging import get_logger
+
+if TYPE_CHECKING:
+    from pyfreepbx.config import FreePBXConfig
 
 log = get_logger("clients.rest")
 
@@ -80,7 +83,9 @@ class RestClient(BaseClient):
     def _handle_response(self, response: httpx.Response) -> Any:
         if response.status_code in (401, 403):
             log.warning("REST authentication failed: HTTP %d", response.status_code)
-            raise AuthenticationError(f"REST API authentication failed: HTTP {response.status_code}")
+            raise AuthenticationError(
+                f"REST API authentication failed: HTTP {response.status_code}"
+            )
         if response.status_code == 404:
             raise NotFoundError(f"REST resource not found: {response.url}")
         if response.status_code == 409:
@@ -107,15 +112,30 @@ class RestClient(BaseClient):
         log.debug("REST GET %s", path)
         try:
             response = self._http.get(self._url(path), params=params, headers=self._auth_headers())
+        except httpx.TimeoutException as exc:
+            raise FreePBXTimeoutError(f"REST GET {path} timed out") from exc
         except httpx.TransportError as exc:
             raise FreePBXTransportError(f"Transport error on GET {path}: {exc}") from exc
         return self._handle_response(response)
 
-    def post(self, path: str, *, json: dict[str, Any] | None = None, data: dict[str, Any] | None = None) -> Any:
+    def post(
+        self,
+        path: str,
+        *,
+        json: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> Any:
         """Send a POST request to the REST API."""
         log.debug("REST POST %s", path)
         try:
-            response = self._http.post(self._url(path), json=json, data=data, headers=self._auth_headers())
+            response = self._http.post(
+                self._url(path),
+                json=json,
+                data=data,
+                headers=self._auth_headers(),
+            )
+        except httpx.TimeoutException as exc:
+            raise FreePBXTimeoutError(f"REST POST {path} timed out") from exc
         except httpx.TransportError as exc:
             raise FreePBXTransportError(f"Transport error on POST {path}: {exc}") from exc
         return self._handle_response(response)
@@ -125,6 +145,8 @@ class RestClient(BaseClient):
         log.debug("REST PUT %s", path)
         try:
             response = self._http.put(self._url(path), json=json, headers=self._auth_headers())
+        except httpx.TimeoutException as exc:
+            raise FreePBXTimeoutError(f"REST PUT {path} timed out") from exc
         except httpx.TransportError as exc:
             raise FreePBXTransportError(f"Transport error on PUT {path}: {exc}") from exc
         return self._handle_response(response)
@@ -134,6 +156,8 @@ class RestClient(BaseClient):
         log.debug("REST DELETE %s", path)
         try:
             response = self._http.delete(self._url(path), headers=self._auth_headers())
+        except httpx.TimeoutException as exc:
+            raise FreePBXTimeoutError(f"REST DELETE {path} timed out") from exc
         except httpx.TransportError as exc:
             raise FreePBXTransportError(f"Transport error on DELETE {path}: {exc}") from exc
         return self._handle_response(response)

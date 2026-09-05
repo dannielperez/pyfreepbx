@@ -131,7 +131,7 @@ class FreePBX:
 
         # Services
         self._extensions = ExtensionService(self._client, self._rest_client)
-        self._queues = QueueService(self._client, self._ami_client)
+        self._queues = QueueService(self._client, self._ami_client, self._rest_client)
         self._system = SystemService(self._client, self._ami_client)
         self._health = HealthService(self._client, self._ami_client)
         self._firewall = FirewallService(self._client)
