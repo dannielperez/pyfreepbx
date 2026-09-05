@@ -87,6 +87,11 @@ class ExtensionService:
         """
         body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
         secret = body.pop("extPassword", None)
+        if payload.tech.value in {"pjsip", "sip"}:
+            # FreePBX 15-17 declare channelName optional, but their Quick Create
+            # resolver consumes the normalized channel identity. Supplying it is
+            # required by deployed Core variants and mirrors updateExtension.
+            body["channelName"] = f"{payload.tech.value.upper()}/{payload.extension}"
         log.info("Creating extension %s via GraphQL", payload.extension)
         recovered: Extension | None = None
         try:
@@ -188,6 +193,7 @@ def _to_graphql_input(body: dict[str, object]) -> dict[str, object]:
     field_names = {
         "extension": "extensionId",
         "voicemail_enabled": "vmEnable",
+        "user_management_enabled": "umEnable",
         "outbound_cid": "outboundCid",
         "secret": "extPassword",
     }
