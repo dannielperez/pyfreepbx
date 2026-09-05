@@ -195,17 +195,27 @@ class QueueService:
         members = configured.get("member", [])
         if not isinstance(members, list) or not all(isinstance(item, str) for item in members):
             raise RuntimeError("FreePBX returned an invalid static-member list.")
+        existing_inputs = self._persistent_member_inputs(queue, members)
+        configured_inputs = {
+            extension: member_input
+            for extension, member_input in zip(members, existing_inputs, strict=True)
+        }
         missing_additions = {
             extension: penalty
             for extension, penalty in additions.items()
-            if extension not in members
+            if extension not in configured_inputs
         }
-        if not missing_additions:
+        updated_existing = [
+            self._member_input_with_penalty(member_input, additions[extension])
+            if extension in additions
+            else member_input
+            for extension, member_input in configured_inputs.items()
+        ]
+        if not missing_additions and updated_existing == existing_inputs:
             return False
 
-        existing_inputs = self._persistent_member_inputs(queue, members)
         submitted_members = [
-            *existing_inputs,
+            *updated_existing,
             *(f"{extension},{penalty}" for extension, penalty in missing_additions.items()),
         ]
         expected_extensions = {*members, *missing_additions}
@@ -279,6 +289,13 @@ class QueueService:
                 f"FreePBX returned an invalid penalty for static member {extension!r}."
             )
         return f"{type_prefix}{extension},{penalty}"
+
+    @staticmethod
+    def _member_input_with_penalty(member_input: str, penalty: int) -> str:
+        member, separator, _existing_penalty = member_input.rpartition(",")
+        if not separator:
+            raise RuntimeError("FreePBX returned an invalid static-member input.")
+        return f"{member},{penalty}"
 
     def _persistent_readback_contains(self, path: str, expected: set[str]) -> bool:
         assert self._rest is not None
@@ -416,8 +433,11 @@ class QueueService:
 
     @classmethod
     def _member_from_event(cls, event: dict[str, str]) -> QueueMember:
+        raw_penalty = event.get("Penalty")
+        penalty = int(raw_penalty) if raw_penalty and raw_penalty.isdigit() else None
         return QueueMember(
             extension=cls._member_extension(event),
             name=event.get("MemberName") or event.get("Name"),
             paused=event.get("Paused") == "1",
+            penalty=penalty,
         )

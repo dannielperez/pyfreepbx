@@ -31,6 +31,7 @@ class TestQueueList:
                 "Name": "Local/1001@from-queue/n",
                 "MemberName": "Alice",
                 "Paused": "0",
+                "Penalty": "1",
             },
             {
                 "Event": "QueueMember",
@@ -145,6 +146,7 @@ class TestQueueMembers:
                 "Name": "Local/1001@from-queue/n",
                 "MemberName": "Alice",
                 "Paused": "0",
+                "Penalty": "1",
             },
             {
                 "Event": "QueueMember",
@@ -162,7 +164,9 @@ class TestQueueMembers:
         assert members[0].extension == "1001"
         assert members[0].name == "Alice"
         assert members[0].paused is False
+        assert members[0].penalty == 1
         assert members[1].paused is True
+        assert members[1].penalty is None
 
     def test_members_without_ami_raises(self, mock_freepbx_client: MagicMock) -> None:
         svc = QueueService(mock_freepbx_client, ami=None)
@@ -327,15 +331,66 @@ class TestPersistentQueueMemberManagement:
         )
         mock_ami.queue_status.assert_called_once_with(queue="99")
 
-    def test_ensure_member_is_idempotent(self, mock_freepbx_client: MagicMock) -> None:
+    def test_ensure_member_is_idempotent(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
         rest = MagicMock()
         rest.get.return_value = {"member": ["1001", "116"], "dynmembers": []}
-        svc = QueueService(mock_freepbx_client, rest=rest)
+        mock_ami.queue_status.return_value = [
+            {
+                "Event": "QueueMember",
+                "Membership": "static",
+                "Interface": "Local/1001@from-queue/n",
+                "Penalty": "0",
+            },
+            {
+                "Event": "QueueMember",
+                "Membership": "static",
+                "Interface": "Local/116@from-queue/n",
+                "Penalty": "0",
+            },
+        ]
+        svc = QueueService(mock_freepbx_client, mock_ami, rest)
 
         changed = svc.ensure_member_persistent(QueueMemberAdd(queue="99", extension="116"))
 
         assert changed is False
         rest.put.assert_not_called()
+
+    def test_ensure_member_updates_priority_without_changing_position(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        rest = MagicMock()
+        rest.get.side_effect = [
+            {"member": ["1001", "116"], "dynmembers": []},
+            {"member": ["1001", "116"], "dynmembers": []},
+        ]
+        rest.put.return_value = True
+        mock_ami.queue_status.return_value = [
+            {
+                "Event": "QueueMember",
+                "Membership": "static",
+                "Interface": "PJSIP/1001",
+                "Penalty": "4",
+            },
+            {
+                "Event": "QueueMember",
+                "Membership": "static",
+                "Interface": "Local/116@from-queue/n",
+                "Penalty": "1",
+            },
+        ]
+        svc = QueueService(mock_freepbx_client, mock_ami, rest)
+
+        changed = svc.ensure_member_persistent(
+            QueueMemberAdd(queue="99", extension="116", penalty=2)
+        )
+
+        assert changed is True
+        rest.put.assert_called_once_with(
+            "/queues/members/99",
+            json={"member": "P1001,4\n116,2"},
+        )
 
     def test_ensure_members_batches_one_queue_before_reload(
         self, mock_freepbx_client: MagicMock
