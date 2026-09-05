@@ -21,7 +21,8 @@ class QueueMember(BaseModel):
     extension: str
     name: str | None = None
     paused: bool = False
-    # TODO: penalty, state_interface — confirm from GraphQL or AMI
+    penalty: int | None = None
+    # TODO: state_interface — confirm from GraphQL or AMI
 
     model_config = {"extra": "allow"}
 
