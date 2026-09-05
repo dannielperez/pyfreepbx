@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `ExtensionService.create()` now sends the complete device-only Quick Create
+  identity used by FreePBX Core 15-17: an explicit `channelName` for SIP/PJSIP
+  endpoints and an optional `user_management_enabled` input mapped to
+  `umEnable`. Existing callers preserve the server default when they omit it;
+  device-only consumers can explicitly disable the User Management path.
 - `ExtensionService.create()` and `update_secret()` now reconcile an indeterminate
   GraphQL read timeout through read-back instead of replaying the write. Creation
   only continues when the requested extension number and name match, secret

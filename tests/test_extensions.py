@@ -96,10 +96,79 @@ class TestExtensionService:
                 "extensionId": "1050",
                 "name": "New User",
                 "tech": "pjsip",
+                "channelName": "PJSIP/1050",
                 "vmEnable": False,
                 "email": "",
             }
         )
+
+    def test_create_disables_userman_for_device_endpoint(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "116",
+            "name": "Guardia 11",
+        }
+
+        ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(
+                extension="116",
+                name="Guardia 11",
+                user_management_enabled=False,
+            )
+        )
+
+        create_input = mock_freepbx_client.add_extension.call_args.args[0]
+        assert create_input["umEnable"] is False
+        assert create_input["channelName"] == "PJSIP/116"
+
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_create_preserves_explicit_userman_choice(
+        self,
+        mock_freepbx_client: MagicMock,
+        enabled: bool,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1050",
+            "name": "New User",
+        }
+
+        ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(
+                extension="1050",
+                name="New User",
+                user_management_enabled=enabled,
+            )
+        )
+
+        create_input = mock_freepbx_client.add_extension.call_args.args[0]
+        assert create_input["umEnable"] is enabled
+
+    @pytest.mark.parametrize(
+        ("tech", "expected_channel"),
+        [("sip", "SIP/1050"), ("iax2", None)],
+    )
+    def test_create_adds_channel_identity_only_for_sip_technologies(
+        self,
+        mock_freepbx_client: MagicMock,
+        tech: str,
+        expected_channel: str | None,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "1050",
+            "name": "Endpoint",
+        }
+
+        ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(extension="1050", name="Endpoint", tech=tech)
+        )
+
+        create_input = mock_freepbx_client.add_extension.call_args.args[0]
+        assert create_input.get("channelName") == expected_channel
 
     def test_update_uses_graphql_without_fabricated_result(
         self,
@@ -153,9 +222,7 @@ class TestExtensionService:
         self,
         mock_freepbx_client: MagicMock,
     ) -> None:
-        mock_freepbx_client.add_extension.side_effect = FreePBXTimeoutError(
-            "response timed out"
-        )
+        mock_freepbx_client.add_extension.side_effect = FreePBXTimeoutError("response timed out")
         mock_freepbx_client.fetch_extension.return_value = {
             "extension": "1050",
             "name": "Guardia 11",
@@ -256,9 +323,7 @@ class TestExtensionService:
         }
         mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
 
-        ExtensionService(mock_freepbx_client).update_secret(
-            "1001", "new-secret", name="Lobby"
-        )
+        ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret", name="Lobby")
 
         mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
 
@@ -266,14 +331,10 @@ class TestExtensionService:
         self,
         mock_freepbx_client: MagicMock,
     ) -> None:
-        mock_freepbx_client.update_extension.side_effect = FreePBXTimeoutError(
-            "response timed out"
-        )
+        mock_freepbx_client.update_extension.side_effect = FreePBXTimeoutError("response timed out")
         mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
 
-        ExtensionService(mock_freepbx_client).update_secret(
-            "1001", "new-secret", name="Guardia 11"
-        )
+        ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret", name="Guardia 11")
 
         mock_freepbx_client.update_extension.assert_called_once()
         mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")

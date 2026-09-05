@@ -16,11 +16,13 @@ class ExtensionCreate(BaseModel):
     """Input payload for creating a new FreePBX extension."""
 
     extension: str = Field(
-        min_length=1, max_length=20,
+        min_length=1,
+        max_length=20,
         description="Extension number (e.g. '1001')",
     )
     name: str = Field(
-        min_length=1, max_length=100,
+        min_length=1,
+        max_length=100,
         description="Display name for the extension",
     )
     tech: ExtensionType = Field(
@@ -30,6 +32,14 @@ class ExtensionCreate(BaseModel):
     voicemail_enabled: bool = Field(
         default=False,
         description="Whether to create a voicemail box",
+    )
+    user_management_enabled: bool | None = Field(
+        default=None,
+        description=(
+            "Whether to create a linked FreePBX User Management account. "
+            "Device-only SIP endpoints explicitly disable it; None preserves "
+            "the server default for existing SDK consumers."
+        ),
     )
     outbound_cid: str | None = Field(
         default=None,
