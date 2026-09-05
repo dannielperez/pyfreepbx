@@ -10,7 +10,7 @@ import respx
 
 from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.config import FreePBXConfig
-from pyfreepbx.exceptions import AuthenticationError, NotFoundError
+from pyfreepbx.exceptions import AuthenticationError, FreePBXTimeoutError, NotFoundError
 
 
 @pytest.fixture
@@ -71,6 +71,17 @@ class TestRestClientAuth:
 
 
 class TestRestClientHTTP:
+    @respx.mock
+    @pytest.mark.parametrize("method", ["get", "post", "put", "delete"])
+    def test_timeout_raises_typed_error(self, client: RestClient, method: str) -> None:
+        respx.request(method.upper(), client._url("/slow")).mock(
+            side_effect=httpx.ReadTimeout("timed out")
+        )
+
+        call = getattr(client, method)
+        with pytest.raises(FreePBXTimeoutError, match="timed out"):
+            call("/slow")
+
     @respx.mock
     def test_get_json(self, client: RestClient) -> None:
         respx.get(f"{BASE}/extensions").mock(
