@@ -10,6 +10,7 @@ from pyfreepbx.exceptions import (
     FreePBXConflictError,
     FreePBXTimeoutError,
     FreePBXValidationError,
+    GraphQLError,
     NotFoundError,
 )
 from pyfreepbx.models.inventory import InventoryListResult
@@ -22,6 +23,13 @@ if TYPE_CHECKING:
 
 
 class TestExtensionService:
+    @pytest.fixture(autouse=True)
+    def _stable_create_marker(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            "pyfreepbx.services.extensions.token_hex",
+            lambda _length: "0123456789abcdef",
+        )
+
     def test_list_result_preserves_completeness(self, mock_freepbx_client: MagicMock) -> None:
         mock_freepbx_client.fetch_all_extensions_result.return_value = InventoryListResult(
             items=[{"extension": "1001", "name": "Alice"}],
@@ -213,6 +221,7 @@ class TestExtensionService:
 
         create_input = mock_freepbx_client.add_extension.call_args.args[0]
         assert "extPassword" not in create_input
+        assert create_input["name"] == "Visitor pending-0123456789abcdef"
         mock_freepbx_client.update_extension.assert_called_once_with(
             {
                 "extensionId": "1050",
@@ -230,6 +239,7 @@ class TestExtensionService:
         mock_freepbx_client.add_extension.side_effect = FreePBXTimeoutError("response timed out")
         mock_freepbx_client.fetch_extension.side_effect = [
             None,
+            {"extension": "1050", "name": "Guardia 11 pending-0123456789abcdef"},
             {"extension": "1050", "name": "Guardia 11"},
         ]
 
@@ -245,7 +255,7 @@ class TestExtensionService:
 
         assert result.extension == "1050"
         mock_freepbx_client.add_extension.assert_called_once()
-        assert mock_freepbx_client.fetch_extension.call_count == 2
+        assert mock_freepbx_client.fetch_extension.call_count == 3
         mock_freepbx_client.update_extension.assert_called_once()
 
     def test_create_propagates_add_timeout_when_readback_does_not_match(
@@ -261,7 +271,11 @@ class TestExtensionService:
 
         with pytest.raises(FreePBXTimeoutError) as excinfo:
             ExtensionService(mock_freepbx_client).create(
-                ExtensionCreate(extension="1050", name="Guardia 11")
+                ExtensionCreate(
+                    extension="1050",
+                    name="Guardia 11",
+                    secret="device-secret",
+                )
             )
 
         assert excinfo.value is timeout
@@ -294,12 +308,12 @@ class TestExtensionService:
             "status": False,
             "message": "Extension already exists",
         }
-        mock_freepbx_client.fetch_extension.side_effect = [None, None]
+        mock_freepbx_client.fetch_extension.return_value = None
         svc = ExtensionService(mock_freepbx_client)
 
         with pytest.raises(FreePBXValidationError, match="Extension already exists"):
             svc.create(ExtensionCreate(extension="1050", name="Duplicate"))
-        assert mock_freepbx_client.fetch_extension.call_count == 2
+        mock_freepbx_client.fetch_extension.assert_called_once_with("1050")
 
     def test_create_reconciles_false_status_when_matching_extension_was_created(
         self,
@@ -311,6 +325,7 @@ class TestExtensionService:
         }
         mock_freepbx_client.fetch_extension.side_effect = [
             None,
+            {"extension": "117", "name": "Guardia 11 pending-0123456789abcdef"},
             {"extension": "117", "name": "Guardia 11"},
         ]
         mock_freepbx_client.update_extension.return_value = {"status": True}
@@ -326,6 +341,29 @@ class TestExtensionService:
         assert result.extension == "117"
         mock_freepbx_client.add_extension.assert_called_once()
         mock_freepbx_client.update_extension.assert_called_once()
+
+    def test_create_reconciles_graphql_error_with_owned_provisional_name(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.side_effect = GraphQLError("ambiguous response")
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "117", "name": "Guardia 11 pending-0123456789abcdef"},
+            {"extension": "117", "name": "Guardia 11"},
+        ]
+        mock_freepbx_client.update_extension.return_value = {"status": True}
+
+        result = ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(
+                extension="117",
+                name="Guardia 11",
+                secret="device-secret",
+            )
+        )
+
+        assert result.name == "Guardia 11"
+        mock_freepbx_client.add_extension.assert_called_once()
 
     def test_create_refuses_preexisting_extension_before_mutation(
         self,
@@ -384,6 +422,22 @@ class TestExtensionService:
         mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
 
         ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret", name="Guardia 11")
+
+        mock_freepbx_client.update_extension.assert_called_once()
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+
+    def test_update_secret_reconciles_graphql_error_without_replaying_write(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.update_extension.side_effect = GraphQLError("ambiguous response")
+        mock_freepbx_client.fetch_extension_secret.return_value = "new-secret"
+
+        ExtensionService(mock_freepbx_client).update_secret(
+            "1001",
+            "new-secret",
+            name="Guardia 11",
+        )
 
         mock_freepbx_client.update_extension.assert_called_once()
         mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
