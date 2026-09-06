@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pyfreepbx.exceptions import FreePBXTimeoutError, FreePBXValidationError, NotFoundError
+from pyfreepbx.exceptions import (
+    FreePBXConflictError,
+    FreePBXTimeoutError,
+    FreePBXValidationError,
+    NotFoundError,
+)
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.schemas.extension_create import ExtensionCreate
 from pyfreepbx.schemas.extension_update import ExtensionUpdate
@@ -82,10 +87,10 @@ class TestExtensionService:
             "status": True,
             "message": "created",
         }
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1050",
-            "name": "New User",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "1050", "name": "New User"},
+        ]
         svc = ExtensionService(mock_freepbx_client)
         payload = ExtensionCreate(extension="1050", name="New User")
         result = svc.create(payload)
@@ -107,10 +112,10 @@ class TestExtensionService:
         mock_freepbx_client: MagicMock,
     ) -> None:
         mock_freepbx_client.add_extension.return_value = {"status": True}
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "116",
-            "name": "Guardia 11",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "116", "name": "Guardia 11"},
+        ]
 
         ExtensionService(mock_freepbx_client).create(
             ExtensionCreate(
@@ -131,10 +136,10 @@ class TestExtensionService:
         enabled: bool,
     ) -> None:
         mock_freepbx_client.add_extension.return_value = {"status": True}
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1050",
-            "name": "New User",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "1050", "name": "New User"},
+        ]
 
         ExtensionService(mock_freepbx_client).create(
             ExtensionCreate(
@@ -158,10 +163,10 @@ class TestExtensionService:
         expected_channel: str | None,
     ) -> None:
         mock_freepbx_client.add_extension.return_value = {"status": True}
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1050",
-            "name": "Endpoint",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "1050", "name": "Endpoint"},
+        ]
 
         ExtensionService(mock_freepbx_client).create(
             ExtensionCreate(extension="1050", name="Endpoint", tech=tech)
@@ -197,10 +202,10 @@ class TestExtensionService:
     ) -> None:
         mock_freepbx_client.add_extension.return_value = {"status": True}
         mock_freepbx_client.update_extension.return_value = {"status": True}
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1050",
-            "name": "Visitor",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "1050", "name": "Visitor"},
+        ]
 
         ExtensionService(mock_freepbx_client).create(
             ExtensionCreate(extension="1050", name="Visitor", secret="device-secret")
@@ -223,10 +228,10 @@ class TestExtensionService:
         mock_freepbx_client: MagicMock,
     ) -> None:
         mock_freepbx_client.add_extension.side_effect = FreePBXTimeoutError("response timed out")
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1050",
-            "name": "Guardia 11",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "1050", "name": "Guardia 11"},
+        ]
 
         mock_freepbx_client.update_extension.return_value = {"status": True}
 
@@ -240,7 +245,7 @@ class TestExtensionService:
 
         assert result.extension == "1050"
         mock_freepbx_client.add_extension.assert_called_once()
-        mock_freepbx_client.fetch_extension.assert_called_once_with("1050")
+        assert mock_freepbx_client.fetch_extension.call_count == 2
         mock_freepbx_client.update_extension.assert_called_once()
 
     def test_create_propagates_add_timeout_when_readback_does_not_match(
@@ -249,10 +254,10 @@ class TestExtensionService:
     ) -> None:
         timeout = FreePBXTimeoutError("response timed out")
         mock_freepbx_client.add_extension.side_effect = timeout
-        mock_freepbx_client.fetch_extension.return_value = {
-            "extension": "1050",
-            "name": "Existing endpoint",
-        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "1050", "name": "Existing endpoint"},
+        ]
 
         with pytest.raises(FreePBXTimeoutError) as excinfo:
             ExtensionService(mock_freepbx_client).create(
@@ -268,6 +273,7 @@ class TestExtensionService:
     ) -> None:
         mock_freepbx_client.add_extension.return_value = {"status": True}
         mock_freepbx_client.fetch_extension.side_effect = [
+            None,
             FreePBXTimeoutError("first read timed out"),
             {"extension": "1050", "name": "Guardia 11"},
         ]
@@ -278,7 +284,7 @@ class TestExtensionService:
 
         assert result.extension == "1050"
         mock_freepbx_client.add_extension.assert_called_once()
-        assert mock_freepbx_client.fetch_extension.call_count == 2
+        assert mock_freepbx_client.fetch_extension.call_count == 3
 
     def test_failed_create_is_not_reported_as_success(
         self,
@@ -288,11 +294,54 @@ class TestExtensionService:
             "status": False,
             "message": "Extension already exists",
         }
+        mock_freepbx_client.fetch_extension.side_effect = [None, None]
         svc = ExtensionService(mock_freepbx_client)
 
         with pytest.raises(FreePBXValidationError, match="Extension already exists"):
             svc.create(ExtensionCreate(extension="1050", name="Duplicate"))
-        mock_freepbx_client.fetch_extension.assert_not_called()
+        assert mock_freepbx_client.fetch_extension.call_count == 2
+
+    def test_create_reconciles_false_status_when_matching_extension_was_created(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {
+            "status": False,
+            "message": None,
+        }
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "117", "name": "Guardia 11"},
+        ]
+        mock_freepbx_client.update_extension.return_value = {"status": True}
+
+        result = ExtensionService(mock_freepbx_client).create(
+            ExtensionCreate(
+                extension="117",
+                name="Guardia 11",
+                secret="device-secret",
+            )
+        )
+
+        assert result.extension == "117"
+        mock_freepbx_client.add_extension.assert_called_once()
+        mock_freepbx_client.update_extension.assert_called_once()
+
+    def test_create_refuses_preexisting_extension_before_mutation(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.fetch_extension.return_value = {
+            "extension": "117",
+            "name": "Guardia 11",
+        }
+
+        with pytest.raises(FreePBXConflictError, match="already exists"):
+            ExtensionService(mock_freepbx_client).create(
+                ExtensionCreate(extension="117", name="Guardia 11")
+            )
+
+        mock_freepbx_client.add_extension.assert_not_called()
 
     def test_update_secret_uses_ext_password(self, mock_freepbx_client: MagicMock) -> None:
         mock_freepbx_client.update_extension.return_value = {

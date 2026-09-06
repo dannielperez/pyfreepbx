@@ -11,7 +11,12 @@ from __future__ import annotations
 import hmac
 from typing import TYPE_CHECKING
 
-from pyfreepbx.exceptions import FreePBXTimeoutError, FreePBXValidationError, NotFoundError
+from pyfreepbx.exceptions import (
+    FreePBXConflictError,
+    FreePBXTimeoutError,
+    FreePBXValidationError,
+    NotFoundError,
+)
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
 from pyfreepbx.models.inventory import InventoryListResult
@@ -85,6 +90,7 @@ class ExtensionService:
             FreePBXConflictError: If the extension number already exists.
             FreePBXTransportError: On network failure.
         """
+        self._ensure_extension_absent(payload.extension)
         body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
         secret = body.pop("extPassword", None)
         if payload.tech.value in {"pjsip", "sip"}:
@@ -97,9 +103,12 @@ class ExtensionService:
         try:
             result = self._client.add_extension(body)
         except FreePBXTimeoutError as exc:
-            recovered = self._matching_extension_after_timeout(payload, exc)
+            recovered = self._matching_extension_after_indeterminate_create(payload, exc)
         else:
-            self._raise_for_failed_mutation("addExtension", result)
+            try:
+                self._raise_for_failed_mutation("addExtension", result)
+            except FreePBXValidationError as exc:
+                recovered = self._matching_extension_after_indeterminate_create(payload, exc)
         if isinstance(secret, str) and secret:
             # FreePBX addExtensionInput does not expose extPassword, while the
             # update mutation does. Set the generated SIP secret immediately
@@ -166,19 +175,27 @@ class ExtensionService:
             return
         self._raise_for_failed_mutation("updateExtension", result)
 
-    def _matching_extension_after_timeout(
+    def _ensure_extension_absent(self, extension_id: str) -> None:
+        """Refuse to mutate when the target number already exists."""
+        try:
+            self.get(extension_id)
+        except NotFoundError:
+            return
+        raise FreePBXConflictError(f"Extension {extension_id!r} already exists")
+
+    def _matching_extension_after_indeterminate_create(
         self,
         payload: ExtensionCreate,
-        timeout: FreePBXTimeoutError,
+        error: FreePBXTimeoutError | FreePBXValidationError,
     ) -> Extension:
-        """Reconcile an indeterminate create without replaying its mutation."""
+        """Reconcile an indeterminate create response without replaying its mutation."""
         try:
             extension = self.get(payload.extension)
         except (FreePBXTimeoutError, NotFoundError) as readback_exc:
-            raise timeout from readback_exc
+            raise error from readback_exc
         if extension.extension != payload.extension or extension.name != payload.name:
-            raise timeout
-        log.info("Verified extension %s after mutation timeout", payload.extension)
+            raise error
+        log.info("Verified extension %s after indeterminate mutation response", payload.extension)
         return extension
 
     @staticmethod
