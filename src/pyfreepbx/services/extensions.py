@@ -9,9 +9,17 @@ instance (2026-07).
 from __future__ import annotations
 
 import hmac
+from secrets import token_hex
 from typing import TYPE_CHECKING
 
-from pyfreepbx.exceptions import FreePBXTimeoutError, FreePBXValidationError, NotFoundError
+from pyfreepbx.exceptions import (
+    FreePBXConflictError,
+    FreePBXTimeoutError,
+    FreePBXTransportError,
+    FreePBXValidationError,
+    GraphQLError,
+    NotFoundError,
+)
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.extension import Extension
 from pyfreepbx.models.inventory import InventoryListResult
@@ -85,34 +93,56 @@ class ExtensionService:
             FreePBXConflictError: If the extension number already exists.
             FreePBXTransportError: On network failure.
         """
+        self._ensure_extension_absent(payload.extension)
         body = _to_graphql_input(payload.model_dump(mode="json", exclude_none=True))
         secret = body.pop("extPassword", None)
+        provisional_name = ""
+        if isinstance(secret, str) and secret:
+            provisional_name = _provisional_create_name(payload.name)
+            body["name"] = provisional_name
         if payload.tech.value in {"pjsip", "sip"}:
             # FreePBX 15-17 declare channelName optional, but their Quick Create
             # resolver consumes the normalized channel identity. Supplying it is
             # required by deployed Core variants and mirrors updateExtension.
             body["channelName"] = f"{payload.tech.value.upper()}/{payload.extension}"
         log.info("Creating extension %s via GraphQL", payload.extension)
-        recovered: Extension | None = None
         try:
             result = self._client.add_extension(body)
-        except FreePBXTimeoutError as exc:
-            recovered = self._matching_extension_after_timeout(payload, exc)
+        except (FreePBXTransportError, GraphQLError) as exc:
+            if not provisional_name:
+                raise
+            self._matching_extension_after_indeterminate_create(
+                payload.extension,
+                provisional_name,
+                exc,
+            )
         else:
-            self._raise_for_failed_mutation("addExtension", result)
+            try:
+                self._raise_for_failed_mutation("addExtension", result)
+            except FreePBXValidationError as exc:
+                if not provisional_name:
+                    raise
+                self._matching_extension_after_indeterminate_create(
+                    payload.extension,
+                    provisional_name,
+                    exc,
+                )
         if isinstance(secret, str) and secret:
             # FreePBX addExtensionInput does not expose extPassword, while the
             # update mutation does. Set the generated SIP secret immediately
             # after creation through that supported field.
             self.update_secret(payload.extension, secret, name=payload.name)
-        if recovered is not None:
-            return recovered
         try:
-            return self.get(payload.extension)
+            extension = self.get(payload.extension)
         except FreePBXTimeoutError:
             # The mutation is already confirmed. One bounded retry of this
             # read-only verification cannot duplicate or alter PBX state.
-            return self.get(payload.extension)
+            extension = self.get(payload.extension)
+        if extension.name != payload.name:
+            raise FreePBXValidationError(
+                f"Extension {payload.extension!r} was created but its final name was not verified"
+            )
+        return extension
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
         """Update an existing extension via the FreePBX GraphQL API.
@@ -149,10 +179,10 @@ class ExtensionService:
                     "extPassword": new_secret,
                 }
             )
-        except FreePBXTimeoutError as exc:
+        except (FreePBXTransportError, GraphQLError) as exc:
             try:
                 observed_secret = self.get_secret(extension_id)
-            except FreePBXTimeoutError as readback_exc:
+            except (FreePBXTransportError, GraphQLError) as readback_exc:
                 raise exc from readback_exc
             if observed_secret and hmac.compare_digest(observed_secret, new_secret):
                 log.info("Verified extension %s secret after mutation timeout", extension_id)
@@ -166,19 +196,28 @@ class ExtensionService:
             return
         self._raise_for_failed_mutation("updateExtension", result)
 
-    def _matching_extension_after_timeout(
-        self,
-        payload: ExtensionCreate,
-        timeout: FreePBXTimeoutError,
-    ) -> Extension:
-        """Reconcile an indeterminate create without replaying its mutation."""
+    def _ensure_extension_absent(self, extension_id: str) -> None:
+        """Refuse to mutate when the target number already exists."""
         try:
-            extension = self.get(payload.extension)
+            self.get(extension_id)
+        except NotFoundError:
+            return
+        raise FreePBXConflictError(f"Extension {extension_id!r} already exists")
+
+    def _matching_extension_after_indeterminate_create(
+        self,
+        extension_id: str,
+        provisional_name: str,
+        error: Exception,
+    ) -> Extension:
+        """Reconcile an indeterminate create response without replaying its mutation."""
+        try:
+            extension = self.get(extension_id)
         except (FreePBXTimeoutError, NotFoundError) as readback_exc:
-            raise timeout from readback_exc
-        if extension.extension != payload.extension or extension.name != payload.name:
-            raise timeout
-        log.info("Verified extension %s after mutation timeout", payload.extension)
+            raise error from readback_exc
+        if extension.extension != extension_id or extension.name != provisional_name:
+            raise error
+        log.info("Verified extension %s after indeterminate mutation response", extension_id)
         return extension
 
     @staticmethod
@@ -198,3 +237,9 @@ def _to_graphql_input(body: dict[str, object]) -> dict[str, object]:
         "secret": "extPassword",
     }
     return {field_names.get(key, key): value for key, value in body.items()}
+
+
+def _provisional_create_name(name: str) -> str:
+    """Build a unique, bounded ownership marker for secret-bearing creates."""
+    marker = f" pending-{token_hex(8)}"
+    return f"{name[: 100 - len(marker)].rstrip()}{marker}"
