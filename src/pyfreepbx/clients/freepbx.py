@@ -52,11 +52,10 @@ query FetchExtension($extensionId: ID!) {
     fetchExtension(extensionId: $extensionId) {
         status
         message
-        extension {
-            user {
-                extension: extensionId
-                name
-            }
+        extension: extensionId
+        user {
+            extension
+            name
         }
     }
 }
@@ -67,11 +66,10 @@ query FetchExtensionSecret($extensionId: ID!) {
     fetchExtension(extensionId: $extensionId) {
         status
         message
-        extension {
-            user {
-                extension: extensionId
-                extPassword
-            }
+        extension: extensionId
+        user {
+            extension
+            extPassword
         }
     }
 }
@@ -235,11 +233,11 @@ class FreePBXClient:
             FETCH_EXTENSION,
             variables={"extensionId": extension_id},
         )
-        result = data.get("fetchExtension", {})
-        ext = result.get("extension")
-        if not ext:
+        result = data.get("fetchExtension")
+        if not isinstance(result, dict) or result.get("status") is not True:
             return None
-        return ext.get("user", ext)
+        user = result.get("user")
+        return user if isinstance(user, dict) else None
 
     def fetch_extension_secret(self, extension_id: str) -> str | None:
         """Fetch the configured SIP secret for one fixed extension.
@@ -255,10 +253,7 @@ class FreePBXClient:
         result = data.get("fetchExtension")
         if not isinstance(result, dict) or result.get("status") is not True:
             return None
-        extension = result.get("extension")
-        if not isinstance(extension, dict):
-            return None
-        user = extension.get("user")
+        user = result.get("user")
         if not isinstance(user, dict):
             return None
         secret = user.get("extPassword")
