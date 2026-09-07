@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fetchExtension` and generated-secret reads now select `extensionId` and
   `user` directly from the FreePBX extension object. FreePBX 16 rejects the
   previous nonexistent nested `extension { ... }` selection with HTTP 400,
-  after the create mutation has already succeeded.
+  blocking both pre-create existence checks and post-create verification.
 - `fetchExtension` and generated-secret reads now declare the extension
   variable as GraphQL `ID!`, matching the FreePBX 16/17 `extensionId: ID`
   argument instead of failing request validation with `String!`.
