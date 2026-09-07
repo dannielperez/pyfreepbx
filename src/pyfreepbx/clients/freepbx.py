@@ -48,7 +48,7 @@ query {
 """
 
 FETCH_EXTENSION = """\
-query FetchExtension($extensionId: String!) {
+query FetchExtension($extensionId: ID!) {
     fetchExtension(extensionId: $extensionId) {
         status
         message
@@ -63,7 +63,7 @@ query FetchExtension($extensionId: String!) {
 """
 
 FETCH_EXTENSION_SECRET = """\
-query FetchExtensionSecret($extensionId: String!) {
+query FetchExtensionSecret($extensionId: ID!) {
     fetchExtension(extensionId: $extensionId) {
         status
         message

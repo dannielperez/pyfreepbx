@@ -53,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `fetchExtension` and generated-secret reads now declare the extension
+  variable as GraphQL `ID!`, matching the FreePBX 16/17 `extensionId: ID`
+  argument instead of failing request validation with `String!`.
 - `ExtensionService.create()` now sends the complete device-only Quick Create
   identity used by FreePBX Core 15-17: an explicit `channelName` for SIP/PJSIP
   endpoints and an optional `user_management_enabled` input mapped to
