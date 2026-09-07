@@ -148,6 +148,7 @@ class TestFetchExtension:
 
         assert result == {"extension": "101", "name": "Guardia 1"}
         request_body = route.calls[0].request.content
+        assert b"$extensionId: ID!" in request_body
         assert b"extension: extensionId" in request_body
         assert b'"extensionId":"101"' in request_body
 
@@ -183,7 +184,7 @@ class TestFetchExtensionSecret:
         assert result == "existing-secret"
         request_body = route.calls[0].request.content
         assert b"query FetchExtensionSecret" in request_body
-        assert b"$extensionId: String!" in request_body
+        assert b"$extensionId: ID!" in request_body
         assert b"extension: extensionId" in request_body
         assert b"extPassword" in request_body
         assert b'"extensionId":"1201"' in request_body
