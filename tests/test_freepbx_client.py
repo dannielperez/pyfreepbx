@@ -132,11 +132,10 @@ class TestFetchExtension:
                         "fetchExtension": {
                             "status": True,
                             "message": "Extension found successfully",
-                            "extension": {
-                                "user": {
-                                    "extension": "101",
-                                    "name": "Guardia 1",
-                                },
+                            "extension": "101",
+                            "user": {
+                                "extension": "101",
+                                "name": "Guardia 1",
                             },
                         },
                     },
@@ -150,6 +149,7 @@ class TestFetchExtension:
         request_body = route.calls[0].request.content
         assert b"$extensionId: ID!" in request_body
         assert b"extension: extensionId" in request_body
+        assert b"extension {" not in request_body
         assert b'"extensionId":"101"' in request_body
 
 
@@ -167,11 +167,10 @@ class TestFetchExtensionSecret:
                         "fetchExtension": {
                             "status": True,
                             "message": "Extension found successfully",
-                            "extension": {
-                                "user": {
-                                    "extension": "1201",
-                                    "extPassword": "existing-secret",
-                                },
+                            "extension": "1201",
+                            "user": {
+                                "extension": "1201",
+                                "extPassword": "existing-secret",
                             },
                         }
                     }
@@ -186,6 +185,7 @@ class TestFetchExtensionSecret:
         assert b"query FetchExtensionSecret" in request_body
         assert b"$extensionId: ID!" in request_body
         assert b"extension: extensionId" in request_body
+        assert b"extension {" not in request_body
         assert b"extPassword" in request_body
         assert b'"extensionId":"1201"' in request_body
 
@@ -194,13 +194,10 @@ class TestFetchExtensionSecret:
         "fetch_extension",
         [
             {"status": False, "message": "Extension does not exist"},
-            {"status": True, "extension": None},
-            {"status": True, "extension": {"user": None}},
+            {"status": True, "user": None},
             {
                 "status": True,
-                "extension": {
-                    "user": {"extension": "1201", "extPassword": ""},
-                },
+                "user": {"extension": "1201", "extPassword": ""},
             },
         ],
     )
