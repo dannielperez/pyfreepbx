@@ -8,6 +8,7 @@ fields from the API are preserved rather than dropped.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -42,3 +43,12 @@ class Extension(BaseModel):
     # TODO: ring_time, call_group, pickup_group — confirm from GraphQL introspection
 
     model_config = {"extra": "allow"}
+
+
+@dataclass(frozen=True)
+class ExtensionProvisioningResult:
+    """A newly created extension and its server-generated one-time secret."""
+
+    extension: Extension
+    secret: str = field(repr=False)
+    diagnostics: tuple[dict[str, object], ...] = ()

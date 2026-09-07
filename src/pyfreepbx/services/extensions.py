@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from pyfreepbx.exceptions import (
     FreePBXConflictError,
+    FreePBXOperationError,
     FreePBXTimeoutError,
     FreePBXTransportError,
     FreePBXValidationError,
@@ -21,7 +22,7 @@ from pyfreepbx.exceptions import (
     NotFoundError,
 )
 from pyfreepbx.logging import get_logger
-from pyfreepbx.models.extension import Extension
+from pyfreepbx.models.extension import Extension, ExtensionProvisioningResult
 from pyfreepbx.models.inventory import InventoryListResult
 
 if TYPE_CHECKING:
@@ -143,6 +144,109 @@ class ExtensionService:
                 f"Extension {payload.extension!r} was created but its final name was not verified"
             )
         return extension
+
+    def create_with_generated_secret(
+        self,
+        payload: ExtensionCreate,
+    ) -> ExtensionProvisioningResult:
+        """Create once and return FreePBX's generated SIP secret.
+
+        FreePBX 16's ``addExtensionInput`` does not expose ``extPassword``.
+        Its ``updateExtension`` resolver deletes and recreates the endpoint, so
+        using an immediate update merely to set a caller-generated secret can
+        lose the new extension.  The Core quick-create path already generates
+        a secret; read that value back instead and never replay a write.
+        """
+        self._ensure_extension_absent(payload.extension)
+        safe_payload = payload.model_copy(update={"secret": None})
+        body = _to_graphql_input(safe_payload.model_dump(mode="json", exclude_none=True))
+        if safe_payload.tech.value in {"pjsip", "sip"}:
+            body["channelName"] = f"{safe_payload.tech.value.upper()}/{safe_payload.extension}"
+
+        log.info("Creating extension %s via GraphQL", safe_payload.extension)
+        try:
+            result = self._client.add_extension(body)
+            self._raise_for_failed_mutation("addExtension", result)
+        except (FreePBXTransportError, GraphQLError, FreePBXValidationError) as exc:
+            remote_state = "unknown"
+            try:
+                observed = self.get(safe_payload.extension)
+            except (FreePBXTransportError, GraphQLError, NotFoundError):
+                pass
+            else:
+                if (
+                    observed.extension == safe_payload.extension
+                    and observed.name == safe_payload.name
+                ):
+                    remote_state = "present"
+            # Number + display name cannot prove mutation ownership under a
+            # concurrent create. Never consume a secret after an ambiguous
+            # response, even when an exact read finds an endpoint.
+            raise FreePBXOperationError(
+                "FreePBX did not unambiguously confirm extension creation.",
+                operation="addExtension",
+                phase="create_extension",
+                remote_state=remote_state,
+                retryable=False,
+            ) from exc
+
+        try:
+            extension = self.get(safe_payload.extension)
+        except (FreePBXTransportError, GraphQLError, NotFoundError) as exc:
+            raise FreePBXOperationError(
+                "FreePBX created the extension but read-back failed.",
+                operation="fetchExtension",
+                phase="verify_extension",
+                remote_state="unknown",
+                retryable=isinstance(exc, FreePBXTransportError),
+            ) from exc
+        if extension.name != safe_payload.name:
+            raise FreePBXOperationError(
+                "FreePBX created the extension but its identity was not verified.",
+                operation="fetchExtension",
+                phase="verify_extension",
+                remote_state="present",
+            )
+
+        try:
+            secret = self.get_secret(safe_payload.extension)
+        except (FreePBXTransportError, GraphQLError) as exc:
+            raise FreePBXOperationError(
+                "FreePBX created the extension but its generated secret was not readable.",
+                operation="fetchExtension",
+                phase="read_generated_secret",
+                remote_state="present",
+                retryable=isinstance(exc, FreePBXTransportError),
+            ) from exc
+        if not secret:
+            raise FreePBXOperationError(
+                "FreePBX created the extension but did not expose its generated secret.",
+                operation="fetchExtension",
+                phase="read_generated_secret",
+                remote_state="present",
+            )
+        return ExtensionProvisioningResult(
+            extension=extension,
+            secret=secret,
+            diagnostics=(
+                {
+                    "provider": "freepbx",
+                    "operation": "addExtension",
+                    "phase": "create_extension",
+                    "category": "success",
+                    "remote_state": "present",
+                    "retryable": False,
+                },
+                {
+                    "provider": "freepbx",
+                    "operation": "fetchExtension",
+                    "phase": "read_generated_secret",
+                    "category": "success",
+                    "remote_state": "present",
+                    "retryable": False,
+                },
+            ),
+        )
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
         """Update an existing extension via the FreePBX GraphQL API.

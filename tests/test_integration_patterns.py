@@ -27,12 +27,14 @@ from pyfreepbx import (
     FreePBX,
     FreePBXConflictError,
     FreePBXError,
+    FreePBXOperationError,
     FreePBXTransportError,
     FreePBXValidationError,
     GraphQLError,
     NotFoundError,
     NotSupportedError,
     StatusResult,
+    safe_error_diagnostics,
 )
 from pyfreepbx.clients.ami_listener import AMI_IDLE
 from pyfreepbx.clients.ami_parser import parse_event
@@ -91,6 +93,7 @@ class TestExceptionHierarchy:
             FreePBXValidationError,
             FreePBXConflictError,
             FreePBXTransportError,
+            FreePBXOperationError,
         ):
             assert issubclass(exc, FreePBXError)
 
@@ -113,6 +116,28 @@ class TestExceptionHierarchy:
         exc = GraphQLError("boom", errors=[{"message": "x"}])
         assert exc.errors == [{"message": "x"}]
         assert GraphQLError("boom").errors == []
+
+    def test_graphql_diagnostics_are_structured_without_raw_message(self) -> None:
+        exc = GraphQLError(
+            "password=must-not-leak",
+            errors=[
+                {
+                    "message": "password=must-not-leak",
+                    "path": ["addExtension"],
+                    "extensions": {"code": "INTERNAL_SERVER_ERROR"},
+                }
+            ],
+            http_status=400,
+        )
+
+        diagnostics = safe_error_diagnostics(exc, phase="create_extension")
+
+        assert diagnostics["category"] == "graphql"
+        assert diagnostics["phase"] == "create_extension"
+        assert diagnostics["graphql"]["http_status"] == 400
+        assert diagnostics["graphql"]["codes"] == ["INTERNAL_SERVER_ERROR"]
+        assert diagnostics["graphql"]["paths"] == [["addExtension"]]
+        assert "must-not-leak" not in repr(diagnostics)
 
     def test_validation_error_carries_details(self) -> None:
         exc = FreePBXValidationError("bad", details={"extension": "required"})

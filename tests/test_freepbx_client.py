@@ -166,9 +166,11 @@ class TestFetchExtensionSecret:
                         "fetchExtension": {
                             "status": True,
                             "message": "Extension found successfully",
-                            "user": {
-                                "extension": "1201",
-                                "extPassword": "existing-secret",
+                            "extension": {
+                                "user": {
+                                    "extension": "1201",
+                                    "extPassword": "existing-secret",
+                                },
                             },
                         }
                     }
@@ -181,6 +183,8 @@ class TestFetchExtensionSecret:
         assert result == "existing-secret"
         request_body = route.calls[0].request.content
         assert b"query FetchExtensionSecret" in request_body
+        assert b"$extensionId: String!" in request_body
+        assert b"extension: extensionId" in request_body
         assert b"extPassword" in request_body
         assert b'"extensionId":"1201"' in request_body
 
@@ -189,8 +193,14 @@ class TestFetchExtensionSecret:
         "fetch_extension",
         [
             {"status": False, "message": "Extension does not exist"},
-            {"status": True, "user": None},
-            {"status": True, "user": {"extension": "1201", "extPassword": ""}},
+            {"status": True, "extension": None},
+            {"status": True, "extension": {"user": None}},
+            {
+                "status": True,
+                "extension": {
+                    "user": {"extension": "1201", "extPassword": ""},
+                },
+            },
         ],
     )
     def test_missing_or_unavailable_secret_returns_none(

@@ -10,6 +10,7 @@ from pyfreepbx.exceptions import (
     ConfigError,
     FreePBXConflictError,
     FreePBXError,
+    FreePBXOperationError,
     FreePBXTimeoutError,
     FreePBXTransportError,
     FreePBXValidationError,
@@ -17,6 +18,7 @@ from pyfreepbx.exceptions import (
     NotFoundError,
     NotSupportedError,
     QueueMemberNotFoundError,
+    safe_error_diagnostics,
 )
 from pyfreepbx.facade import FreePBX
 from pyfreepbx.models.call import ActiveChannel, HangupResult
@@ -45,6 +47,7 @@ __all__ = [
     "FreePBX",
     "FreePBXConflictError",
     "FreePBXError",
+    "FreePBXOperationError",
     "FreePBXTimeoutError",
     "FreePBXTransportError",
     "FreePBXValidationError",
@@ -56,4 +59,5 @@ __all__ = [
     "StatusResult",
     "__version__",
     "normalize_registration_state",
+    "safe_error_diagnostics",
 ]
