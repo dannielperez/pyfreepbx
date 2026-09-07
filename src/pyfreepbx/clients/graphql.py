@@ -89,9 +89,7 @@ class GraphQLClient(BaseClient):
 
         if response.status_code in (401, 403):
             log.warning("GraphQL authentication failed: HTTP %d", response.status_code)
-            raise AuthenticationError(
-                f"GraphQL authentication failed: HTTP {response.status_code}"
-            )
+            raise AuthenticationError(f"GraphQL authentication failed: HTTP {response.status_code}")
         if response.is_error:
             # FreePBX returns schema/validation failures as HTTP 400 with a
             # standard GraphQL ``errors`` body (observed live: querying an
@@ -104,7 +102,11 @@ class GraphQLClient(BaseClient):
             if errors:
                 first_msg = errors[0].get("message", "Unknown GraphQL error")
                 log.error("GraphQL error (HTTP %d): %s", response.status_code, first_msg)
-                raise GraphQLError(first_msg, errors=errors)
+                raise GraphQLError(
+                    first_msg,
+                    errors=errors,
+                    http_status=response.status_code,
+                )
             response.raise_for_status()
 
         body = response.json()
@@ -113,7 +115,11 @@ class GraphQLClient(BaseClient):
             errors = body["errors"]
             first_msg = errors[0].get("message", "Unknown GraphQL error") if errors else ""
             log.error("GraphQL error: %s", first_msg)
-            raise GraphQLError(first_msg, errors=errors)
+            raise GraphQLError(
+                first_msg,
+                errors=errors,
+                http_status=response.status_code,
+            )
 
         data = body.get("data", {})
         return data if isinstance(data, dict) else {}

@@ -63,13 +63,15 @@ query FetchExtension($extensionId: String!) {
 """
 
 FETCH_EXTENSION_SECRET = """\
-query FetchExtensionSecret($extensionId: ID!) {
+query FetchExtensionSecret($extensionId: String!) {
     fetchExtension(extensionId: $extensionId) {
         status
         message
-        user {
-            extension
-            extPassword
+        extension {
+            user {
+                extension: extensionId
+                extPassword
+            }
         }
     }
 }
@@ -253,7 +255,10 @@ class FreePBXClient:
         result = data.get("fetchExtension")
         if not isinstance(result, dict) or result.get("status") is not True:
             return None
-        user = result.get("user")
+        extension = result.get("extension")
+        if not isinstance(extension, dict):
+            return None
+        user = extension.get("user")
         if not isinstance(user, dict):
             return None
         secret = user.get("extPassword")

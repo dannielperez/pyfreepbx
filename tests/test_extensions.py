@@ -8,6 +8,7 @@ import pytest
 
 from pyfreepbx.exceptions import (
     FreePBXConflictError,
+    FreePBXOperationError,
     FreePBXTimeoutError,
     FreePBXValidationError,
     GraphQLError,
@@ -114,6 +115,81 @@ class TestExtensionService:
                 "email": "",
             }
         )
+
+    def test_create_with_generated_secret_avoids_destructive_update(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "118", "name": "Guardia 11"},
+        ]
+        mock_freepbx_client.fetch_extension_secret.return_value = "generated-secret"
+
+        result = ExtensionService(mock_freepbx_client).create_with_generated_secret(
+            ExtensionCreate(
+                extension="118",
+                name="Guardia 11",
+                secret="caller-secret",
+                user_management_enabled=False,
+            )
+        )
+
+        assert result.extension.extension == "118"
+        assert result.secret == "generated-secret"
+        assert [event["phase"] for event in result.diagnostics] == [
+            "create_extension",
+            "read_generated_secret",
+        ]
+        assert "generated-secret" not in repr(result)
+        create_input = mock_freepbx_client.add_extension.call_args.args[0]
+        assert "extPassword" not in create_input
+        mock_freepbx_client.update_extension.assert_not_called()
+
+    def test_generated_secret_read_failure_reports_remote_extension_present(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "118", "name": "Guardia 11"},
+        ]
+        mock_freepbx_client.fetch_extension_secret.side_effect = GraphQLError(
+            "secret=must-not-cross-boundary",
+            errors=[{"message": "secret=must-not-cross-boundary"}],
+        )
+
+        with pytest.raises(FreePBXOperationError) as raised:
+            ExtensionService(mock_freepbx_client).create_with_generated_secret(
+                ExtensionCreate(extension="118", name="Guardia 11")
+            )
+
+        assert raised.value.phase == "read_generated_secret"
+        assert raised.value.remote_state == "present"
+        assert "must-not-cross-boundary" not in str(raised.value)
+        mock_freepbx_client.update_extension.assert_not_called()
+
+    def test_ambiguous_create_fails_closed_without_reading_competing_secret(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.side_effect = FreePBXTimeoutError("timeout")
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "118", "name": "Guardia 11"},
+        ]
+
+        with pytest.raises(FreePBXOperationError) as raised:
+            ExtensionService(mock_freepbx_client).create_with_generated_secret(
+                ExtensionCreate(extension="118", name="Guardia 11")
+            )
+
+        assert raised.value.remote_state == "present"
+        assert raised.value.retryable is False
+        mock_freepbx_client.fetch_extension_secret.assert_not_called()
+        mock_freepbx_client.update_extension.assert_not_called()
 
     def test_create_disables_userman_for_device_endpoint(
         self,
