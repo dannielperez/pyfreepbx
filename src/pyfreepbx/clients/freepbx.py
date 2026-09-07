@@ -54,7 +54,7 @@ query FetchExtension($extensionId: ID!) {
         message
         extension: extensionId
         user {
-            extension
+            extension: extensionId
             name
         }
     }
@@ -68,7 +68,7 @@ query FetchExtensionSecret($extensionId: ID!) {
         message
         extension: extensionId
         user {
-            extension
+            extension: extensionId
             extPassword
         }
     }
