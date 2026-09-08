@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- Single-extension and generated-secret reads now select
+  `user.extensionId` through the normalized `extension` alias. FreePBX 16 uses
+  `extensionId` on the nested single-extension user object even though its bulk
+  extension query exposes `user.extension`.
 - `fetchExtension` and generated-secret reads now select `extensionId` and
   `user` directly from the FreePBX extension object. FreePBX 16 rejects the
   previous nonexistent nested `extension { ... }` selection with HTTP 400,
