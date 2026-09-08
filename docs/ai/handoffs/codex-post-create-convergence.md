@@ -20,6 +20,7 @@
 - Full SDK suite: 406 passed, 2 documented xpasses.
 - Scoped Ruff: passed.
 - `git diff --check`: passed.
+- Repository self-review: 0 BLOCK, 0 WARN.
 - SDK-boundary review: OK.
 - Stability review: OK after adding the shared monotonic deadline and
   remaining-budget request timeouts.
