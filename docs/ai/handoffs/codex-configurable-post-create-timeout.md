@@ -14,8 +14,9 @@
 
 - Full SDK suite: 410 passed, 2 documented xpasses.
 - Scoped Ruff and `git diff --check`: passed.
-- Self-review must be rerun after this handoff is committed.
-- SDK-boundary and stability reviews pending.
+- Self-review: 0 BLOCK, 0 WARN.
+- SDK-boundary review: OK.
+- Stability review: OK.
 
 ## Risks
 
