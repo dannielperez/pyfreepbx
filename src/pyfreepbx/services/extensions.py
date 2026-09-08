@@ -306,6 +306,16 @@ class ExtensionService:
             self.get(extension_id)
         except NotFoundError:
             return
+        except GraphQLError:
+            # Some FreePBX Core versions raise an internal GraphQL error for
+            # an absent number. The error alone cannot prove absence: require
+            # an explicitly complete inventory before allowing the mutation.
+            inventory = self.list_result()
+            if any(item.extension == extension_id for item in inventory.items):
+                raise FreePBXConflictError(f"Extension {extension_id!r} already exists") from None
+            if inventory.complete is not True:
+                raise
+            return
         raise FreePBXConflictError(f"Extension {extension_id!r} already exists")
 
     def _matching_extension_after_indeterminate_create(

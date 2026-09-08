@@ -517,3 +517,60 @@ class TestExtensionService:
 
         mock_freepbx_client.update_extension.assert_called_once()
         mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+
+
+@pytest.mark.parametrize("method", ["create", "create_with_generated_secret"])
+def test_create_uses_complete_inventory_after_absent_lookup_error(
+    mock_freepbx_client: MagicMock,
+    method: str,
+) -> None:
+    mock_freepbx_client.fetch_extension.side_effect = [
+        GraphQLError("Internal server error"),
+        {"extension": "118", "name": "Guardia 11"},
+    ]
+    mock_freepbx_client.fetch_all_extensions_result.return_value = InventoryListResult(
+        items=[{"extension": "117", "name": "Existing"}],
+        complete=True,
+    )
+    mock_freepbx_client.add_extension.return_value = {"status": True}
+    mock_freepbx_client.fetch_extension_secret.return_value = "generated-secret"
+    getattr(ExtensionService(mock_freepbx_client), method)(
+        ExtensionCreate(extension="118", name="Guardia 11")
+    )
+    mock_freepbx_client.add_extension.assert_called_once()
+    mock_freepbx_client.update_extension.assert_not_called()
+
+
+@pytest.mark.parametrize("method", ["create", "create_with_generated_secret"])
+@pytest.mark.parametrize("complete,present", [(False, False), (False, True), (True, True)])
+def test_create_blocks_unproven_absence_after_lookup_error(
+    mock_freepbx_client: MagicMock,
+    method: str,
+    complete: bool,
+    present: bool,
+) -> None:
+    error = GraphQLError("Internal server error")
+    mock_freepbx_client.fetch_extension.side_effect = error
+    mock_freepbx_client.fetch_all_extensions_result.return_value = InventoryListResult(
+        items=[{"extension": "118", "name": "Existing"}] if present else [],
+        complete=complete,
+    )
+    with pytest.raises(FreePBXConflictError if present else GraphQLError):
+        getattr(ExtensionService(mock_freepbx_client), method)(
+            ExtensionCreate(extension="118", name="Guardia 11")
+        )
+    mock_freepbx_client.add_extension.assert_not_called()
+    mock_freepbx_client.update_extension.assert_not_called()
+
+
+def test_create_does_not_write_when_fallback_inventory_fails(
+    mock_freepbx_client: MagicMock,
+) -> None:
+    mock_freepbx_client.fetch_extension.side_effect = GraphQLError("Internal server error")
+    mock_freepbx_client.fetch_all_extensions_result.side_effect = FreePBXTimeoutError("timeout")
+    with pytest.raises(FreePBXTimeoutError):
+        ExtensionService(mock_freepbx_client).create_with_generated_secret(
+            ExtensionCreate(extension="118", name="Guardia 11")
+        )
+    mock_freepbx_client.add_extension.assert_not_called()
+    mock_freepbx_client.update_extension.assert_not_called()
