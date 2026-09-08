@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `ExtensionService.create_with_generated_secret()` now tolerates FreePBX's
+  post-create read-model lag without replaying `addExtension`. It accepts an
+  exact name/number match from a complete bulk inventory and retries only
+  GraphQL/not-found reads within one 2.5-second end-to-end deadline. Each read
+  receives only the remaining deadline budget, and transport timeouts fail
+  immediately so PBX slowness cannot multiply across retries.
 - Single-extension and generated-secret reads now select
   `user.extensionId` through the normalized `extension` alias. FreePBX 16 uses
   `extensionId` on the nested single-extension user object even though its bulk

@@ -205,9 +205,16 @@ class FreePBXClient:
         """
         return self.fetch_all_extensions_result().items
 
-    def fetch_all_extensions_result(self) -> InventoryListResult[dict[str, Any]]:
+    def fetch_all_extensions_result(
+        self,
+        *,
+        timeout: float | None = None,
+    ) -> InventoryListResult[dict[str, Any]]:
         """Fetch extensions and report whether the response is authoritative."""
-        data = self._gql.query(FETCH_ALL_EXTENSIONS)
+        if timeout is None:
+            data = self._gql.query(FETCH_ALL_EXTENSIONS)
+        else:
+            data = self._gql.query(FETCH_ALL_EXTENSIONS, timeout=timeout)
         result = data.get("fetchAllExtensions")
         if not isinstance(result, dict):
             return InventoryListResult(items=[], complete=False)
@@ -227,29 +234,39 @@ class FreePBXClient:
         log.debug("Fetched %d raw extensions (complete=%s)", len(items), complete)
         return InventoryListResult(items=items, complete=complete)
 
-    def fetch_extension(self, extension_id: str) -> dict[str, Any] | None:
+    def fetch_extension(
+        self,
+        extension_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, Any] | None:
         """Fetch a single extension by number. Returns None if not found."""
-        data = self._gql.query(
-            FETCH_EXTENSION,
-            variables={"extensionId": extension_id},
-        )
+        query_kwargs: dict[str, Any] = {"variables": {"extensionId": extension_id}}
+        if timeout is not None:
+            query_kwargs["timeout"] = timeout
+        data = self._gql.query(FETCH_EXTENSION, **query_kwargs)
         result = data.get("fetchExtension")
         if not isinstance(result, dict) or result.get("status") is not True:
             return None
         user = result.get("user")
         return user if isinstance(user, dict) else None
 
-    def fetch_extension_secret(self, extension_id: str) -> str | None:
+    def fetch_extension_secret(
+        self,
+        extension_id: str,
+        *,
+        timeout: float | None = None,
+    ) -> str | None:
         """Fetch the configured SIP secret for one fixed extension.
 
         FreePBX Core 16/17 exposes ``coreuser.extPassword`` and resolves it via
         ``Core->getSipSecret()``. Keep this separate from normal inventory reads
         so secrets never enter bulk extension payloads or debug logging.
         """
-        data = self._gql.query(
-            FETCH_EXTENSION_SECRET,
-            variables={"extensionId": extension_id},
-        )
+        query_kwargs: dict[str, Any] = {"variables": {"extensionId": extension_id}}
+        if timeout is not None:
+            query_kwargs["timeout"] = timeout
+        data = self._gql.query(FETCH_EXTENSION_SECRET, **query_kwargs)
         result = data.get("fetchExtension")
         if not isinstance(result, dict) or result.get("status") is not True:
             return None

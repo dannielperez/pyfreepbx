@@ -55,20 +55,32 @@ class GraphQLClient(BaseClient):
             return {}
         return {"Authorization": f"Bearer {token}"}
 
-    def query(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def query(
+        self,
+        query: str,
+        variables: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         """Execute a GraphQL query and return the data payload.
 
         Raises:
             AuthenticationError: If the API returns 401/403.
             GraphQLError: If the response contains GraphQL-level errors.
         """
-        return self._execute(query, variables)
+        return self._execute(query, variables, timeout=timeout)
 
     def mutation(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
         """Execute a GraphQL mutation. Same transport as query."""
         return self._execute(query, variables)
 
-    def _execute(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _execute(
+        self,
+        query: str,
+        variables: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
@@ -77,11 +89,10 @@ class GraphQLClient(BaseClient):
 
         headers = self._auth_headers()
         try:
-            response = self._http.post(
-                self._config.graphql_url,
-                json=payload,
-                headers=headers,
-            )
+            request_kwargs: dict[str, Any] = {"json": payload, "headers": headers}
+            if timeout is not None:
+                request_kwargs["timeout"] = timeout
+            response = self._http.post(self._config.graphql_url, **request_kwargs)
         except httpx.TimeoutException as exc:
             raise FreePBXTimeoutError("FreePBX GraphQL request timed out") from exc
         except httpx.TransportError as exc:
