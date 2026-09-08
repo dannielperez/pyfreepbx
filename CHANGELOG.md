@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- `ExtensionService.create_with_generated_secret()` now accepts a keyword-only
+  `convergence_timeout` so callers can tune the shared post-create read deadline;
+  the backward-compatible default remains 2.5 seconds.
 - `DiagnosticsService.cdr()` — the direct-DB path now takes a much larger page cap (`_DB_HARD_LIMIT = 5000`) than the GraphQL path (`_HARD_LIMIT = 500`). The direct query is sargable/indexed (~ms), so the tight GraphQL cap was pointless there and starved incremental CDR sync — on a busy PBX it hit 500 every run and reported itself perpetually `partial`/backfill-incomplete. The GraphQL path is unchanged.
 
 ### Added

@@ -250,7 +250,7 @@ class TestExtensionService:
             fetch_calls += 1
             if fetch_calls == 1:
                 return None
-            assert 0 < kwargs["timeout"] <= 2.5
+            assert 0 < kwargs["timeout"] <= 1.25
             now[0] += 3.0
             raise GraphQLError("slow internal error")
 
@@ -263,7 +263,8 @@ class TestExtensionService:
                 sleep=lambda delay: now.__setitem__(0, now[0] + delay),
                 clock=lambda: now[0],
             ).create_with_generated_secret(
-                ExtensionCreate(extension="118", name="Guardia 11")
+                ExtensionCreate(extension="118", name="Guardia 11"),
+                convergence_timeout=1.25,
             )
 
         assert raised.value.phase == "verify_extension"
@@ -271,6 +272,21 @@ class TestExtensionService:
         mock_freepbx_client.fetch_all_extensions_result.assert_not_called()
         mock_freepbx_client.fetch_extension_secret.assert_not_called()
         mock_freepbx_client.add_extension.assert_called_once()
+
+    @pytest.mark.parametrize("timeout", [0.0, -1.0, float("inf"), float("nan")])
+    def test_generated_secret_create_rejects_invalid_convergence_timeout(
+        self,
+        mock_freepbx_client: MagicMock,
+        timeout: float,
+    ) -> None:
+        with pytest.raises(ValueError, match="finite and greater than zero"):
+            ExtensionService(mock_freepbx_client).create_with_generated_secret(
+                ExtensionCreate(extension="118", name="Guardia 11"),
+                convergence_timeout=timeout,
+            )
+
+        mock_freepbx_client.fetch_extension.assert_not_called()
+        mock_freepbx_client.add_extension.assert_not_called()
 
     def test_ambiguous_create_fails_closed_without_reading_competing_secret(
         self,

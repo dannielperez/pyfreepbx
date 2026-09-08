@@ -9,6 +9,7 @@ instance (2026-07).
 from __future__ import annotations
 
 import hmac
+import math
 import time
 from secrets import token_hex
 from typing import TYPE_CHECKING
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
 log = get_logger("services.extensions")
 
 _POST_CREATE_READ_DELAYS = (0.0, 0.25, 0.75, 1.5)
-_POST_CREATE_READ_DEADLINE = 2.5
+DEFAULT_POST_CREATE_CONVERGENCE_TIMEOUT = 2.5
 
 
 class ExtensionService:
@@ -171,6 +172,8 @@ class ExtensionService:
     def create_with_generated_secret(
         self,
         payload: ExtensionCreate,
+        *,
+        convergence_timeout: float = DEFAULT_POST_CREATE_CONVERGENCE_TIMEOUT,
     ) -> ExtensionProvisioningResult:
         """Create once and return FreePBX's generated SIP secret.
 
@@ -180,6 +183,9 @@ class ExtensionService:
         lose the new extension.  The Core quick-create path already generates
         a secret; read that value back instead and never replay a write.
         """
+        if not math.isfinite(convergence_timeout) or convergence_timeout <= 0:
+            raise ValueError("convergence_timeout must be finite and greater than zero")
+
         self._ensure_extension_absent(payload.extension)
         safe_payload = payload.model_copy(update={"secret": None})
         body = _to_graphql_input(safe_payload.model_dump(mode="json", exclude_none=True))
@@ -213,7 +219,7 @@ class ExtensionService:
                 retryable=False,
             ) from exc
 
-        read_deadline = self._clock() + _POST_CREATE_READ_DEADLINE
+        read_deadline = self._clock() + convergence_timeout
         extension = self._wait_for_created_extension(
             safe_payload.extension,
             deadline=read_deadline,
