@@ -9,6 +9,7 @@ instance (2026-07).
 from __future__ import annotations
 
 import hmac
+import time
 from secrets import token_hex
 from typing import TYPE_CHECKING
 
@@ -26,12 +27,17 @@ from pyfreepbx.models.extension import Extension, ExtensionProvisioningResult
 from pyfreepbx.models.inventory import InventoryListResult
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pyfreepbx.clients.freepbx import FreePBXClient
     from pyfreepbx.clients.rest import RestClient
     from pyfreepbx.schemas.extension_create import ExtensionCreate
     from pyfreepbx.schemas.extension_update import ExtensionUpdate
 
 log = get_logger("services.extensions")
+
+_POST_CREATE_READ_DELAYS = (0.0, 0.25, 0.75, 1.5)
+_POST_CREATE_READ_DEADLINE = 2.5
 
 
 class ExtensionService:
@@ -45,9 +51,18 @@ class ExtensionService:
         pbx.extensions.create(ExtensionCreate(extension="1002", name="Front Desk"))
     """
 
-    def __init__(self, client: FreePBXClient, rest: RestClient | None = None) -> None:
+    def __init__(
+        self,
+        client: FreePBXClient,
+        rest: RestClient | None = None,
+        *,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._client = client
         self._rest = rest
+        self._sleep = sleep
+        self._clock = clock
 
     def list(self) -> list[Extension]:
         """Fetch all extensions from FreePBX.
@@ -60,31 +75,39 @@ class ExtensionService:
         log.debug("Listed %d extensions", len(extensions))
         return extensions
 
-    def list_result(self) -> InventoryListResult[Extension]:
+    def list_result(self, *, timeout: float | None = None) -> InventoryListResult[Extension]:
         """Fetch extensions with an authoritative-response signal."""
-        raw_result = self._client.fetch_all_extensions_result()
+        if timeout is None:
+            raw_result = self._client.fetch_all_extensions_result()
+        else:
+            raw_result = self._client.fetch_all_extensions_result(timeout=timeout)
         extensions = [Extension.model_validate(item) for item in raw_result.items]
         log.debug("Listed %d extensions", len(extensions))
         return InventoryListResult(items=extensions, complete=raw_result.complete)
 
-    def get(self, extension_id: str) -> Extension:
+    def get(self, extension_id: str, *, timeout: float | None = None) -> Extension:
         """Fetch a single extension by number.
 
         Raises:
             NotFoundError: If the extension does not exist.
         """
-        raw = self._client.fetch_extension(extension_id)
+        if timeout is None:
+            raw = self._client.fetch_extension(extension_id)
+        else:
+            raw = self._client.fetch_extension(extension_id, timeout=timeout)
         if raw is None:
             raise NotFoundError(f"Extension {extension_id!r} not found")
         return Extension.model_validate(raw)
 
-    def get_secret(self, extension_id: str) -> str | None:
+    def get_secret(self, extension_id: str, *, timeout: float | None = None) -> str | None:
         """Fetch the configured SIP secret for one fixed extension.
 
         The plaintext is returned only to the caller and is never logged.
         ``None`` means FreePBX did not expose a secret for this extension.
         """
-        return self._client.fetch_extension_secret(extension_id)
+        if timeout is None:
+            return self._client.fetch_extension_secret(extension_id)
+        return self._client.fetch_extension_secret(extension_id, timeout=timeout)
 
     def create(self, payload: ExtensionCreate) -> Extension:
         """Create a new extension via the FreePBX GraphQL API.
@@ -190,16 +213,11 @@ class ExtensionService:
                 retryable=False,
             ) from exc
 
-        try:
-            extension = self.get(safe_payload.extension)
-        except (FreePBXTransportError, GraphQLError, NotFoundError) as exc:
-            raise FreePBXOperationError(
-                "FreePBX created the extension but read-back failed.",
-                operation="fetchExtension",
-                phase="verify_extension",
-                remote_state="unknown",
-                retryable=isinstance(exc, FreePBXTransportError),
-            ) from exc
+        read_deadline = self._clock() + _POST_CREATE_READ_DEADLINE
+        extension = self._wait_for_created_extension(
+            safe_payload.extension,
+            deadline=read_deadline,
+        )
         if extension.name != safe_payload.name:
             raise FreePBXOperationError(
                 "FreePBX created the extension but its identity was not verified.",
@@ -208,23 +226,10 @@ class ExtensionService:
                 remote_state="present",
             )
 
-        try:
-            secret = self.get_secret(safe_payload.extension)
-        except (FreePBXTransportError, GraphQLError) as exc:
-            raise FreePBXOperationError(
-                "FreePBX created the extension but its generated secret was not readable.",
-                operation="fetchExtension",
-                phase="read_generated_secret",
-                remote_state="present",
-                retryable=isinstance(exc, FreePBXTransportError),
-            ) from exc
-        if not secret:
-            raise FreePBXOperationError(
-                "FreePBX created the extension but did not expose its generated secret.",
-                operation="fetchExtension",
-                phase="read_generated_secret",
-                remote_state="present",
-            )
+        secret = self._wait_for_generated_secret(
+            safe_payload.extension,
+            deadline=read_deadline,
+        )
         return ExtensionProvisioningResult(
             extension=extension,
             secret=secret,
@@ -247,6 +252,89 @@ class ExtensionService:
                 },
             ),
         )
+
+    def _wait_for_created_extension(self, extension_id: str, *, deadline: float) -> Extension:
+        """Reconcile a confirmed create while FreePBX read models converge.
+
+        Some deployed FreePBX Core versions acknowledge ``addExtension`` before
+        ``fetchExtension`` can resolve the new endpoint. A complete bulk
+        inventory is authoritative enough to verify the non-secret identity;
+        otherwise retry only the read for one short, fixed window.
+        """
+        last_error: Exception | None = None
+        for delay in _POST_CREATE_READ_DELAYS:
+            remaining = self._remaining_read_budget(deadline, delay=delay)
+            if remaining is None:
+                break
+            try:
+                return self.get(extension_id, timeout=remaining)
+            except FreePBXTransportError as exc:
+                last_error = exc
+                break
+            except (GraphQLError, NotFoundError) as exc:
+                last_error = exc
+            remaining = self._remaining_read_budget(deadline)
+            if remaining is None:
+                break
+            try:
+                inventory = self.list_result(timeout=remaining)
+            except FreePBXTransportError as exc:
+                last_error = exc
+                break
+            except GraphQLError as exc:
+                last_error = exc
+                continue
+            if inventory.complete:
+                match = next(
+                    (item for item in inventory.items if item.extension == extension_id),
+                    None,
+                )
+                if match is not None:
+                    return match
+
+        raise FreePBXOperationError(
+            "FreePBX acknowledged extension creation but its identity did not become readable.",
+            operation="fetchExtension",
+            phase="verify_extension",
+            remote_state="unknown",
+            retryable=False,
+        ) from last_error
+
+    def _wait_for_generated_secret(self, extension_id: str, *, deadline: float) -> str:
+        """Read a newly generated secret after bounded, read-only convergence."""
+        last_error: Exception | None = None
+        for delay in _POST_CREATE_READ_DELAYS:
+            remaining = self._remaining_read_budget(deadline, delay=delay)
+            if remaining is None:
+                break
+            try:
+                secret = self.get_secret(extension_id, timeout=remaining)
+            except FreePBXTransportError as exc:
+                last_error = exc
+                break
+            except GraphQLError as exc:
+                last_error = exc
+                continue
+            if secret:
+                return secret
+
+        raise FreePBXOperationError(
+            "FreePBX created the extension but its generated secret did not become readable.",
+            operation="fetchExtension",
+            phase="read_generated_secret",
+            remote_state="present",
+            retryable=False,
+        ) from last_error
+
+    def _remaining_read_budget(self, deadline: float, *, delay: float = 0.0) -> float | None:
+        """Sleep within the convergence deadline and return request budget."""
+        remaining = deadline - self._clock()
+        if remaining <= 0:
+            return None
+        if delay:
+            self._sleep(min(delay, remaining))
+            remaining = deadline - self._clock()
+        return remaining if remaining > 0 else None
 
     def update(self, extension_id: str, payload: ExtensionUpdate) -> Extension:
         """Update an existing extension via the FreePBX GraphQL API.

@@ -161,15 +161,116 @@ class TestExtensionService:
             errors=[{"message": "secret=must-not-cross-boundary"}],
         )
 
+        sleeps: list[float] = []
         with pytest.raises(FreePBXOperationError) as raised:
-            ExtensionService(mock_freepbx_client).create_with_generated_secret(
+            ExtensionService(
+                mock_freepbx_client,
+                sleep=sleeps.append,
+            ).create_with_generated_secret(
                 ExtensionCreate(extension="118", name="Guardia 11")
             )
 
         assert raised.value.phase == "read_generated_secret"
         assert raised.value.remote_state == "present"
         assert "must-not-cross-boundary" not in str(raised.value)
+        assert mock_freepbx_client.fetch_extension_secret.call_count == 4
+        assert sleeps == [0.25, 0.75, 1.5]
         mock_freepbx_client.update_extension.assert_not_called()
+
+    def test_generated_secret_create_reconciles_eventually_consistent_reads(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            GraphQLError("Internal server error"),
+        ]
+        mock_freepbx_client.fetch_all_extensions_result.return_value = InventoryListResult(
+            items=[{"extension": "118", "name": "Guardia 11"}],
+            complete=True,
+        )
+        mock_freepbx_client.fetch_extension_secret.side_effect = [
+            GraphQLError("Internal server error"),
+            None,
+            "generated-secret",
+        ]
+        sleeps: list[float] = []
+
+        result = ExtensionService(
+            mock_freepbx_client,
+            sleep=sleeps.append,
+        ).create_with_generated_secret(
+            ExtensionCreate(extension="118", name="Guardia 11")
+        )
+
+        assert result.extension.extension == "118"
+        assert result.secret == "generated-secret"
+        assert sleeps == [0.25, 0.75]
+        mock_freepbx_client.add_extension.assert_called_once()
+        mock_freepbx_client.fetch_all_extensions_result.assert_called_once()
+        assert mock_freepbx_client.fetch_extension_secret.call_count == 3
+        mock_freepbx_client.update_extension.assert_not_called()
+
+    def test_generated_secret_read_does_not_multiply_transport_timeouts(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+        mock_freepbx_client.fetch_extension.side_effect = [
+            None,
+            {"extension": "118", "name": "Guardia 11"},
+        ]
+        mock_freepbx_client.fetch_extension_secret.side_effect = FreePBXTimeoutError("timeout")
+        sleeps: list[float] = []
+
+        with pytest.raises(FreePBXOperationError) as raised:
+            ExtensionService(
+                mock_freepbx_client,
+                sleep=sleeps.append,
+            ).create_with_generated_secret(
+                ExtensionCreate(extension="118", name="Guardia 11")
+            )
+
+        assert raised.value.phase == "read_generated_secret"
+        assert raised.value.remote_state == "present"
+        assert mock_freepbx_client.fetch_extension_secret.call_count == 1
+        assert sleeps == []
+        mock_freepbx_client.add_extension.assert_called_once()
+
+    def test_post_create_reads_share_one_wall_clock_deadline(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        now = [100.0]
+        fetch_calls = 0
+
+        def fetch_extension(_extension: str, **kwargs: float) -> dict[str, str] | None:
+            nonlocal fetch_calls
+            fetch_calls += 1
+            if fetch_calls == 1:
+                return None
+            assert 0 < kwargs["timeout"] <= 2.5
+            now[0] += 3.0
+            raise GraphQLError("slow internal error")
+
+        mock_freepbx_client.fetch_extension.side_effect = fetch_extension
+        mock_freepbx_client.add_extension.return_value = {"status": True}
+
+        with pytest.raises(FreePBXOperationError) as raised:
+            ExtensionService(
+                mock_freepbx_client,
+                sleep=lambda delay: now.__setitem__(0, now[0] + delay),
+                clock=lambda: now[0],
+            ).create_with_generated_secret(
+                ExtensionCreate(extension="118", name="Guardia 11")
+            )
+
+        assert raised.value.phase == "verify_extension"
+        assert fetch_calls == 2
+        mock_freepbx_client.fetch_all_extensions_result.assert_not_called()
+        mock_freepbx_client.fetch_extension_secret.assert_not_called()
+        mock_freepbx_client.add_extension.assert_called_once()
 
     def test_ambiguous_create_fails_closed_without_reading_competing_secret(
         self,
