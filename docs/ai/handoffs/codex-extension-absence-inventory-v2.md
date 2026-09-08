@@ -20,7 +20,17 @@ absence, incomplete inventory, existing numbers, and fallback transport failure.
 - `uv run --extra dev pytest -q`: 402 passed, 2 documented synthetic-fixture XPASS.
 - `uv run --extra dev ruff check src/pyfreepbx/services/extensions.py tests/test_extensions.py`: pass.
 - `uv run --extra dev ruff format --check src/pyfreepbx/services/extensions.py tests/test_extensions.py`: pass.
+- Repository-wide Ruff reproduces the unchanged baseline: 14 findings in untouched
+  files and 10 untouched files requiring formatting.
 - No Django check applies to this standalone SDK.
+
+## Review fanout
+
+- SDK-boundary reviewer: OK — the vendor quirk, typed completeness signal, and
+  fail-closed reconciliation remain entirely inside `pyfreepbx`.
+- Stability reviewer: OK — the fallback adds one timeout-bounded inventory read,
+  never loops or retries the mutation, and blocks on incomplete or failed state.
+- Migration-safety reviewer: n/a — no model, schema, or data migration change.
 
 ## Scope and risks
 
