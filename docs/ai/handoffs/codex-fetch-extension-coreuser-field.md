@@ -24,6 +24,17 @@
 - `uv run --extra dev pytest -q` — 415 passed, 2 documented XPASS.
 - Repository-wide Ruff remains red on 14 pre-existing findings in untouched
   OAuth/model/schema/service/test files; this change adds no lint findings.
+  Tracked separately as pyfreepbx issue #50.
+- `/Users/dperez/git/UniqueOS/scripts/ai/self_review.sh` — 0 BLOCK,
+  0 WARN.
+
+## Review fanout
+
+- stability-reviewer: OK — field-only query correction adds no calls, retries,
+  fan-out, transactions, or writes; existing calls remain timeout-bounded.
+- sdk-boundary-reviewer: OK — FreePBX GraphQL details remain wholly inside the
+  owned SDK with contract tests.
+- migration-safety-reviewer: n/a — no model, migration, or backfill change.
 
 ## Risks and compatibility
 
