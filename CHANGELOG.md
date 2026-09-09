@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- Single-extension reads now select `extensionId` on the outer FreePBX
+  `extension` object and `extension` on its nested `coreuser`. FreePBX 16/17
+  exposes different identifier field names on those two GraphQL types; using
+  `extensionId` for both made post-create secret reads fail schema validation
+  after the extension had already been created.
 - `ExtensionService.update_secret()` now reconciles ambiguous GraphQL mutation
   outcomes against FreePBX's eventually consistent secret read model. It retries
   only `fetchExtension` reads within one caller-configurable 2.5-second deadline,
@@ -66,10 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GraphQL/not-found reads within one 2.5-second end-to-end deadline. Each read
   receives only the remaining deadline budget, and transport timeouts fail
   immediately so PBX slowness cannot multiply across retries.
-- Single-extension and generated-secret reads now select
-  `user.extensionId` through the normalized `extension` alias. FreePBX 16 uses
-  `extensionId` on the nested single-extension user object even though its bulk
-  extension query exposes `user.extension`.
+- Single-extension and generated-secret reads normalize the outer
+  `extension.extensionId` while retaining `user.extension` on the nested
+  `coreuser` object.
 - `fetchExtension` and generated-secret reads now select `extensionId` and
   `user` directly from the FreePBX extension object. FreePBX 16 rejects the
   previous nonexistent nested `extension { ... }` selection with HTTP 400,
