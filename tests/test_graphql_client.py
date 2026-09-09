@@ -52,6 +52,28 @@ class TestGraphQLClient:
         assert client.query("{ __typename }", timeout=0.4) == {"__typename": "Query"}
         assert observed_timeout == [0.4]
 
+    def test_mutation_passes_per_call_timeout_to_httpx(
+        self,
+        client: GraphQLClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        observed_timeout: list[float] = []
+
+        def post(_url: str, **kwargs: object) -> httpx.Response:
+            observed_timeout.append(float(kwargs["timeout"]))
+            return httpx.Response(
+                200,
+                json={"data": {"doreload": {"status": False}}},
+                request=httpx.Request("POST", "https://pbx.test/graphql"),
+            )
+
+        monkeypatch.setattr(client._http, "post", post)
+
+        assert client.mutation("mutation { doreload }", timeout=0.4) == {
+            "doreload": {"status": False}
+        }
+        assert observed_timeout == [0.4]
+
     @respx.mock
     def test_query_success(self, config: FreePBXConfig) -> None:
         respx.post(f"{config.graphql_url}").mock(

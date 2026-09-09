@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `SystemService.apply_config_and_wait()` now issues `doreload` exactly once and
+  reconciles FreePBX 16's false acknowledgement through a caller-bounded
+  `fetchNeedReload` poll. The SDK normalizes the version-specific response into
+  a typed convergence result, and GraphQL mutations now accept a per-call
+  timeout.
 - Single-extension reads now select `extensionId` on the outer FreePBX
   `extension` object and `extension` on its nested `coreuser`. FreePBX 16/17
   exposes different identifier field names on those two GraphQL types; using

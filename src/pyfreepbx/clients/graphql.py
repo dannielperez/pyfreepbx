@@ -70,9 +70,15 @@ class GraphQLClient(BaseClient):
         """
         return self._execute(query, variables, timeout=timeout)
 
-    def mutation(self, query: str, variables: dict[str, Any] | None = None) -> dict[str, Any]:
+    def mutation(
+        self,
+        query: str,
+        variables: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         """Execute a GraphQL mutation. Same transport as query."""
-        return self._execute(query, variables)
+        return self._execute(query, variables, timeout=timeout)
 
     def _execute(
         self,

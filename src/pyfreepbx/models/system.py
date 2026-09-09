@@ -46,3 +46,12 @@ class ApplyConfigResult(BaseModel):
     status: bool
     message: str = ""
     transaction_id: str = ""
+
+
+class ApplyConfigConvergenceResult(BaseModel):
+    """Typed outcome after applying config and checking authoritative reload state."""
+
+    acknowledged: bool
+    converged: bool
+    message: str = ""
+    transaction_id: str = ""
