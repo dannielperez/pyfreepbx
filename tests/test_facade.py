@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import os
+from unittest.mock import patch
 
 import pytest
 
 from pyfreepbx import FreePBX
 from pyfreepbx.exceptions import ConfigError
-from pyfreepbx.services.extensions import ExtensionService
 from pyfreepbx.services.diagnostics import DiagnosticsService
+from pyfreepbx.services.extensions import ExtensionService
 from pyfreepbx.services.health import HealthService
 from pyfreepbx.services.queues import QueueService
 from pyfreepbx.services.system import SystemService
@@ -63,4 +63,21 @@ class TestFreePBXFacade:
         pbx = FreePBX(host="pbx.test", api_token="tok")
         with pytest.raises(ConfigError, match="AMI is not configured"):
             pbx.connect_ami()
+        pbx.close()
+
+    def test_connect_ami_disables_unsolicited_events(self) -> None:
+        pbx = FreePBX(
+            host="pbx.test",
+            api_token="tok",
+            ami_username="admin",
+            ami_secret="secret",
+        )
+        with (
+            patch("pyfreepbx.facade.AMIClient.connect") as connect,
+            patch("pyfreepbx.facade.AMIClient.login") as login,
+        ):
+            pbx.connect_ami()
+
+        connect.assert_called_once_with()
+        login.assert_called_once_with(events=False)
         pbx.close()

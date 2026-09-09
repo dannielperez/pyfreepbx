@@ -352,7 +352,10 @@ class FreePBX:
         if self._ami_client is None:
             raise ConfigError("AMI is not configured. Provide ami_username and ami_secret.")
         self._ami_client.connect()
-        self._ami_client.login()
+        # Facade-managed AMI connections are synchronous request/response
+        # sessions. Unsolicited events can otherwise arrive between actions
+        # and be mistaken for the next action's initial response.
+        self._ami_client.login(events=False)
         log.info("AMI connected: %s", self._ami_client.banner)
 
     def originate(self, **kwargs: object) -> OriginateResult:
