@@ -151,8 +151,9 @@ class TestFetchExtension:
         request_body = route.calls[0].request.content
         query = json.loads(request_body)["query"]
         assert "$extensionId: ID!" in query
-        assert query.count("extension: extensionId") == 2
-        assert "user {\n            extension: extensionId" in query
+        assert query.count("extension: extensionId") == 1
+        assert "user {\n            extension\n" in query
+        assert "user {\n            extension: extensionId" not in query
         assert "extension {" not in query
         assert b'"extensionId":"101"' in request_body
 
@@ -189,8 +190,9 @@ class TestFetchExtensionSecret:
         query = json.loads(request_body)["query"]
         assert "query FetchExtensionSecret" in query
         assert "$extensionId: ID!" in query
-        assert query.count("extension: extensionId") == 2
-        assert "user {\n            extension: extensionId" in query
+        assert query.count("extension: extensionId") == 1
+        assert "user {\n            extension\n" in query
+        assert "user {\n            extension: extensionId" not in query
         assert "extension {" not in query
         assert "extPassword" in query
         assert b'"extensionId":"1201"' in request_body
