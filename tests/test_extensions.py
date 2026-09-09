@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 
 import pytest
 
@@ -605,7 +606,7 @@ class TestExtensionService:
 
         ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret", name="Lobby")
 
-        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001", timeout=ANY)
 
     def test_update_secret_reconciles_ambiguous_timeout_without_replaying_write(
         self,
@@ -617,7 +618,7 @@ class TestExtensionService:
         ExtensionService(mock_freepbx_client).update_secret("1001", "new-secret", name="Guardia 11")
 
         mock_freepbx_client.update_extension.assert_called_once()
-        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001", timeout=ANY)
 
     def test_update_secret_reconciles_graphql_error_without_replaying_write(
         self,
@@ -633,7 +634,54 @@ class TestExtensionService:
         )
 
         mock_freepbx_client.update_extension.assert_called_once()
-        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001")
+        mock_freepbx_client.fetch_extension_secret.assert_called_once_with("1001", timeout=ANY)
+
+    def test_update_secret_waits_for_read_model_convergence_without_replaying_write(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        now = [100.0]
+        mock_freepbx_client.update_extension.side_effect = GraphQLError("ambiguous response")
+        mock_freepbx_client.fetch_extension_secret.side_effect = [
+            GraphQLError("not readable yet"),
+            "previous-secret",
+            "new-secret",
+        ]
+
+        ExtensionService(
+            mock_freepbx_client,
+            sleep=lambda delay: now.__setitem__(0, now[0] + delay),
+            clock=lambda: now[0],
+        ).update_secret(
+            "1001",
+            "new-secret",
+            name="Guardia 11",
+            convergence_timeout=2.0,
+        )
+
+        mock_freepbx_client.update_extension.assert_called_once()
+        assert mock_freepbx_client.fetch_extension_secret.call_count == 3
+        assert all(
+            0 < call.kwargs["timeout"] <= 2.0
+            for call in mock_freepbx_client.fetch_extension_secret.call_args_list
+        )
+        assert now[0] == 101.0
+
+    @pytest.mark.parametrize("timeout", [0.0, -1.0, float("inf"), float("nan")])
+    def test_update_secret_rejects_invalid_convergence_timeout_before_mutation(
+        self,
+        mock_freepbx_client: MagicMock,
+        timeout: float,
+    ) -> None:
+        with pytest.raises(ValueError, match="finite and greater than zero"):
+            ExtensionService(mock_freepbx_client).update_secret(
+                "1001",
+                "new-secret",
+                convergence_timeout=timeout,
+            )
+
+        mock_freepbx_client.update_extension.assert_not_called()
+        mock_freepbx_client.fetch_extension_secret.assert_not_called()
 
 
 @pytest.mark.parametrize("method", ["create", "create_with_generated_secret"])
