@@ -39,6 +39,7 @@ log = get_logger("services.extensions")
 
 _POST_CREATE_READ_DELAYS = (0.0, 0.25, 0.75, 1.5)
 DEFAULT_POST_CREATE_CONVERGENCE_TIMEOUT = 2.5
+DEFAULT_SECRET_UPDATE_CONVERGENCE_TIMEOUT = 2.5
 
 
 class ExtensionService:
@@ -359,13 +360,23 @@ class ExtensionService:
         self._raise_for_failed_mutation("updateExtension", result)
         return self.get(extension_id)
 
-    def update_secret(self, extension_id: str, new_secret: str, *, name: str = "") -> None:
+    def update_secret(
+        self,
+        extension_id: str,
+        new_secret: str,
+        *,
+        name: str = "",
+        convergence_timeout: float = DEFAULT_SECRET_UPDATE_CONVERGENCE_TIMEOUT,
+    ) -> None:
         """Update only the SIP secret for an extension.
 
         Raises:
             NotFoundError: If the extension does not exist.
             FreePBXTransportError: On network failure.
         """
+        if not math.isfinite(convergence_timeout) or convergence_timeout <= 0:
+            raise ValueError("convergence_timeout must be finite and greater than zero")
+
         log.info("Rotating secret for extension %s via GraphQL", extension_id)
         try:
             result = self._client.update_extension(
@@ -377,22 +388,48 @@ class ExtensionService:
                     "extPassword": new_secret,
                 }
             )
-        except (FreePBXTransportError, GraphQLError) as exc:
-            try:
-                observed_secret = self.get_secret(extension_id)
-            except (FreePBXTransportError, GraphQLError) as readback_exc:
-                raise exc from readback_exc
-            if observed_secret and hmac.compare_digest(observed_secret, new_secret):
+        except (FreePBXTransportError, GraphQLError):
+            if self._wait_for_secret_match(
+                extension_id,
+                new_secret,
+                convergence_timeout=convergence_timeout,
+            ):
                 log.info("Verified extension %s secret after mutation timeout", extension_id)
                 return
             raise
         if result.get("status") is True:
             return
-        observed_secret = self.get_secret(extension_id)
-        if observed_secret and hmac.compare_digest(observed_secret, new_secret):
+        if self._wait_for_secret_match(
+            extension_id,
+            new_secret,
+            convergence_timeout=convergence_timeout,
+        ):
             log.info("Verified extension %s secret after null mutation status", extension_id)
             return
         self._raise_for_failed_mutation("updateExtension", result)
+
+    def _wait_for_secret_match(
+        self,
+        extension_id: str,
+        expected_secret: str,
+        *,
+        convergence_timeout: float,
+    ) -> bool:
+        """Reconcile one ambiguous secret update without replaying its mutation."""
+        deadline = self._clock() + convergence_timeout
+        for delay in _POST_CREATE_READ_DELAYS:
+            remaining = self._remaining_read_budget(deadline, delay=delay)
+            if remaining is None:
+                break
+            try:
+                observed_secret = self.get_secret(extension_id, timeout=remaining)
+            except FreePBXTransportError:
+                break
+            except GraphQLError:
+                continue
+            if observed_secret and hmac.compare_digest(observed_secret, expected_secret):
+                return True
+        return False
 
     def _ensure_extension_absent(self, extension_id: str) -> None:
         """Refuse to mutate when the target number already exists."""

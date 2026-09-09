@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `ExtensionService.update_secret()` now reconciles ambiguous GraphQL mutation
+  outcomes against FreePBX's eventually consistent secret read model. It retries
+  only `fetchExtension` reads within one caller-configurable 2.5-second deadline,
+  never replays the secret mutation, and stops immediately on transport failure.
 - `ExtensionService.create_with_generated_secret()` now tolerates FreePBX's
   post-create read-model lag without replaying `addExtension`. It accepts an
   exact name/number match from a complete bulk inventory and retries only
