@@ -48,3 +48,70 @@ def test_apply_config_timeout_propagates_without_retry() -> None:
         SystemService(client).apply_config()
 
     client.graphql.mutation.assert_called_once()
+
+
+def test_apply_config_and_wait_reconciles_false_acknowledgement() -> None:
+    client = MagicMock()
+    client.graphql.mutation.return_value = {
+        "doreload": {"status": False, "message": "Reload failed"}
+    }
+    client.graphql.query.side_effect = [
+        {"fetchNeedReload": {"status": True, "message": "Doreload is required"}},
+        {"fetchNeedReload": {"status": True, "message": "Reload not required"}},
+    ]
+    now = {"value": 0.0}
+    sleeps: list[float] = []
+
+    def sleep(delay: float) -> None:
+        sleeps.append(delay)
+        now["value"] += delay
+
+    service = SystemService(
+        client,
+        sleep=sleep,
+        clock=lambda: now["value"],
+    )
+
+    result = service.apply_config_and_wait(timeout=2.0, poll_interval=0.25)
+
+    assert result.acknowledged is False
+    assert result.converged is True
+    assert result.message == "Reload not required"
+    assert sleeps == [0.25]
+    client.graphql.mutation.assert_called_once()
+    assert client.graphql.query.call_count == 2
+
+
+def test_apply_config_and_wait_returns_pending_at_deadline_without_replay() -> None:
+    client = MagicMock()
+    client.graphql.mutation.return_value = {
+        "doreload": {"status": False, "message": "Reload failed"}
+    }
+    client.graphql.query.return_value = {
+        "fetchNeedReload": {"status": True, "message": "Doreload is required"}
+    }
+    now = {"value": 0.0}
+
+    service = SystemService(
+        client,
+        sleep=lambda delay: now.__setitem__("value", now["value"] + delay),
+        clock=lambda: now["value"],
+    )
+
+    result = service.apply_config_and_wait(timeout=0.5, poll_interval=0.25)
+
+    assert result.acknowledged is False
+    assert result.converged is False
+    assert result.message == "Doreload is required"
+    client.graphql.mutation.assert_called_once()
+    assert client.graphql.query.call_count == 2
+
+
+@pytest.mark.parametrize("timeout", [0.0, -1.0, float("inf"), float("nan")])
+def test_apply_config_and_wait_rejects_invalid_timeout_before_mutation(timeout: float) -> None:
+    client = MagicMock()
+
+    with pytest.raises(ValueError, match="timeout must be finite"):
+        SystemService(client).apply_config_and_wait(timeout=timeout)
+
+    client.graphql.mutation.assert_not_called()
