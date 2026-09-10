@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- Queue reads and persistent queue-member updates now tolerate FreePBX builds
+  that reject the optional AMI `QueueStatus` queue filter with the bare
+  `QueueStatus failed` response. The SDK retries that exact compatibility
+  failure once with the bounded all-queue action and filters locally; other
+  AMI errors remain terminal.
 - `SystemService.apply_config_and_wait()` now issues `doreload` exactly once and
   reconciles FreePBX 16's false acknowledgement through a caller-bounded
   `fetchNeedReload` poll. The SDK normalizes the version-specific response into

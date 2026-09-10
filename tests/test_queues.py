@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
-from pyfreepbx.exceptions import FreePBXTimeoutError, NotFoundError, QueueMemberNotFoundError
+from pyfreepbx.exceptions import (
+    AMIError,
+    FreePBXTimeoutError,
+    NotFoundError,
+    QueueMemberNotFoundError,
+)
 from pyfreepbx.models.queue import QueueStats
 from pyfreepbx.schemas.queue_member import (
     QueueMemberAdd,
@@ -168,6 +173,42 @@ class TestQueueMembers:
         assert members[1].paused is True
         assert members[1].penalty is None
 
+    def test_members_falls_back_when_queue_filter_is_rejected(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.queue_status.side_effect = [
+            AMIError("QueueStatus failed"),
+            [
+                {
+                    "Event": "QueueMember",
+                    "Queue": "400",
+                    "Name": "Local/1001@from-queue/n",
+                    "Penalty": "0",
+                },
+                {
+                    "Event": "QueueMember",
+                    "Queue": "401",
+                    "Name": "Local/2001@from-queue/n",
+                    "Penalty": "0",
+                },
+            ],
+        ]
+
+        members = QueueService(mock_freepbx_client, mock_ami).members("400")
+
+        assert [member.extension for member in members] == ["1001"]
+        assert mock_ami.queue_status.call_args_list == [call(queue="400"), call()]
+
+    def test_members_does_not_retry_other_ami_errors(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.queue_status.side_effect = AMIError("Permission denied")
+
+        with pytest.raises(AMIError, match="Permission denied"):
+            QueueService(mock_freepbx_client, mock_ami).members("400")
+
+        mock_ami.queue_status.assert_called_once_with(queue="400")
+
     def test_members_without_ami_raises(self, mock_freepbx_client: MagicMock) -> None:
         svc = QueueService(mock_freepbx_client, ami=None)
         with pytest.raises(RuntimeError, match="AMI client is required"):
@@ -265,9 +306,7 @@ class TestQueueMemberManagement:
         self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
     ) -> None:
         svc = QueueService(mock_freepbx_client, mock_ami)
-        svc.pause_member_runtime(
-            QueueMemberPause(queue="400", extension="1001", paused=False)
-        )
+        svc.pause_member_runtime(QueueMemberPause(queue="400", extension="1001", paused=False))
 
         mock_ami.queue_pause.assert_called_once_with(
             queue="400",
@@ -276,17 +315,53 @@ class TestQueueMemberManagement:
             reason=None,
         )
 
-    def test_pause_member_runtime_without_ami_raises(
-        self, mock_freepbx_client: MagicMock
-    ) -> None:
+    def test_pause_member_runtime_without_ami_raises(self, mock_freepbx_client: MagicMock) -> None:
         svc = QueueService(mock_freepbx_client, ami=None)
         with pytest.raises(RuntimeError, match="AMI client is required"):
-            svc.pause_member_runtime(
-                QueueMemberPause(queue="400", extension="1001", paused=True)
-            )
+            svc.pause_member_runtime(QueueMemberPause(queue="400", extension="1001", paused=True))
 
 
 class TestPersistentQueueMemberManagement:
+    def test_ensure_member_falls_back_to_unfiltered_queue_status(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        rest = MagicMock()
+        rest.get.side_effect = [
+            {"member": ["1001"], "dynmembers": []},
+            {"member": ["1001", "125"], "dynmembers": []},
+        ]
+        rest.put.return_value = True
+        mock_ami.queue_status.side_effect = [
+            AMIError("QueueStatus failed"),
+            [
+                {
+                    "Event": "QueueMember",
+                    "Queue": "99",
+                    "Membership": "static",
+                    "Interface": "PJSIP/1001",
+                    "Penalty": "4",
+                },
+                {
+                    "Event": "QueueMember",
+                    "Queue": "98",
+                    "Membership": "static",
+                    "Interface": "PJSIP/2001",
+                    "Penalty": "2",
+                },
+            ],
+        ]
+
+        changed = QueueService(mock_freepbx_client, mock_ami, rest).ensure_member_persistent(
+            QueueMemberAdd(queue="99", extension="125", penalty=0)
+        )
+
+        assert changed is True
+        rest.put.assert_called_once_with(
+            "/queues/members/99",
+            json={"member": "P1001,4\n125,0"},
+        )
+        assert mock_ami.queue_status.call_args_list == [call(queue="99"), call()]
+
     def test_ensure_member_preserves_position_and_corresponding_priority(
         self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
     ) -> None:
