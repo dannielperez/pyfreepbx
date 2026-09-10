@@ -11,7 +11,12 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
-from pyfreepbx.exceptions import FreePBXTimeoutError, NotFoundError, QueueMemberNotFoundError
+from pyfreepbx.exceptions import (
+    AMIError,
+    FreePBXTimeoutError,
+    NotFoundError,
+    QueueMemberNotFoundError,
+)
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
@@ -127,7 +132,7 @@ class QueueService:
         self._require_ami("queue members")
         assert self._ami is not None
 
-        events = self._ami.queue_status(queue=queue_number)
+        events = self._queue_status_for_queue(queue_number)
 
         members: list[QueueMember] = []
         for event in events:
@@ -245,7 +250,7 @@ class QueueService:
         assert self._ami is not None
 
         static_events: dict[str, dict[str, str]] = {}
-        for event in self._ami.queue_status(queue=queue):
+        for event in self._queue_status_for_queue(queue):
             if event.get("Event") != "QueueMember":
                 continue
             if event.get("Membership", "").lower() != "static":
@@ -265,6 +270,28 @@ class QueueService:
             self._persistent_member_input(static_events[extension], extension)
             for extension in extensions
         ]
+
+    def _queue_status_for_queue(self, queue: str) -> list[dict[str, str]]:
+        """Read one queue, tolerating FreePBX builds that reject the filter.
+
+        Some Asterisk/FreePBX deployments return the bare ``QueueStatus
+        failed`` error when the optional ``Queue`` action header is present,
+        while the bounded unfiltered action succeeds. Retry only that exact
+        compatibility failure, then filter the authoritative full response
+        locally. Authentication, permission, transport, and timeout errors
+        remain terminal.
+        """
+        assert self._ami is not None
+        try:
+            return self._ami.queue_status(queue=queue)
+        except AMIError as exc:
+            if str(exc).strip().casefold() != "queuestatus failed":
+                raise
+            log.info(
+                "QueueStatus rejected the queue filter for %s; retrying unfiltered",
+                queue,
+            )
+        return [event for event in self._ami.queue_status() if event.get("Queue") == queue]
 
     @staticmethod
     def _persistent_member_input(event: dict[str, str], extension: str) -> str:
