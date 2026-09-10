@@ -20,6 +20,7 @@ from pyfreepbx.exceptions import (
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
+from pyfreepbx.services.system import SystemService
 
 if TYPE_CHECKING:
     from pyfreepbx.clients.ami import AMIClient
@@ -45,10 +46,15 @@ class QueueService:
         client: FreePBXClient,
         ami: AMIClient | None = None,
         rest: RestClient | None = None,
+        *,
+        system: SystemService | None = None,
+        pending_config_timeout: float = 10.0,
     ) -> None:
         self._client = client
         self._ami = ami
         self._rest = rest
+        self._system = system or SystemService(client, ami)
+        self._pending_config_timeout = pending_config_timeout
 
     # ------------------------------------------------------------------
     # Inventory (AMI)
@@ -249,16 +255,16 @@ class QueueService:
         self._require_ami("reconcile persistent queue members")
         assert self._ami is not None
 
-        static_events: dict[str, dict[str, str]] = {}
-        for event in self._queue_status_for_queue(queue):
-            if event.get("Event") != "QueueMember":
-                continue
-            if event.get("Membership", "").lower() != "static":
-                continue
-            extension = self._member_extension(event)
-            if extension in static_events:
-                raise RuntimeError(f"FreePBX returned duplicate static queue member {extension!r}.")
-            static_events[extension] = event
+        static_events = self._static_member_events(queue)
+        missing = [extension for extension in extensions if extension not in static_events]
+        if missing and self._system.config_reload_required(timeout=self._pending_config_timeout):
+            convergence = self._system.apply_config_and_wait(timeout=self._pending_config_timeout)
+            if not convergence.converged:
+                raise RuntimeError(
+                    "FreePBX pending configuration did not converge before "
+                    "queue-member reconciliation."
+                )
+            static_events = self._static_member_events(queue)
 
         missing = [extension for extension in extensions if extension not in static_events]
         if missing:
@@ -270,6 +276,19 @@ class QueueService:
             self._persistent_member_input(static_events[extension], extension)
             for extension in extensions
         ]
+
+    def _static_member_events(self, queue: str) -> dict[str, dict[str, str]]:
+        static_events: dict[str, dict[str, str]] = {}
+        for event in self._queue_status_for_queue(queue):
+            if event.get("Event") != "QueueMember":
+                continue
+            if event.get("Membership", "").lower() != "static":
+                continue
+            extension = self._member_extension(event)
+            if extension in static_events:
+                raise RuntimeError(f"FreePBX returned duplicate static queue member {extension!r}.")
+            static_events[extension] = event
+        return static_events
 
     def _queue_status_for_queue(self, queue: str) -> list[dict[str, str]]:
         """Read one queue, tolerating FreePBX builds that reject the filter.
