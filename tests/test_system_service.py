@@ -21,6 +21,30 @@ def test_config_reload_status_uses_fetch_need_reload() -> None:
     assert "fetchNeedReload" in query
 
 
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("Doreload is required", True),
+        ("Reload not required", False),
+    ],
+)
+def test_config_reload_required_normalizes_freepbx_messages(message: str, expected: bool) -> None:
+    client = MagicMock()
+    client.graphql.query.return_value = {"fetchNeedReload": {"status": True, "message": message}}
+
+    assert SystemService(client).config_reload_required() is expected
+
+
+def test_config_reload_required_rejects_ambiguous_response() -> None:
+    client = MagicMock()
+    client.graphql.query.return_value = {
+        "fetchNeedReload": {"status": True, "message": "Operation complete"}
+    }
+
+    with pytest.raises(RuntimeError, match="ambiguous"):
+        SystemService(client).config_reload_required()
+
+
 def test_apply_config_uses_doreload_and_returns_transaction() -> None:
     client = MagicMock()
     client.graphql.mutation.return_value = {

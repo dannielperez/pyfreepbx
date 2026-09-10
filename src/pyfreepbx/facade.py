@@ -130,9 +130,14 @@ class FreePBX:
             self._cdr_db_reader = CdrDbReader(self._db_config, timeout=db_timeout)
 
         # Services
-        self._extensions = ExtensionService(self._client, self._rest_client)
-        self._queues = QueueService(self._client, self._ami_client, self._rest_client)
         self._system = SystemService(self._client, self._ami_client)
+        self._extensions = ExtensionService(self._client, self._rest_client)
+        self._queues = QueueService(
+            self._client,
+            self._ami_client,
+            self._rest_client,
+            system=self._system,
+        )
         self._health = HealthService(self._client, self._ami_client)
         self._firewall = FirewallService(self._client)
         self._diagnostics = DiagnosticsService(

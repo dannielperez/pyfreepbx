@@ -79,6 +79,22 @@ class SystemService:
         data = self._client.graphql.query(_FETCH_NEED_RELOAD, timeout=timeout)
         return ConfigReloadStatus.model_validate(data.get("fetchNeedReload") or {})
 
+    def config_reload_required(self, *, timeout: float | None = None) -> bool:
+        """Return whether FreePBX reports unapplied configuration.
+
+        FreePBX 16/17 uses a successful ``status`` value for both outcomes and
+        communicates the actual state in its version-specific message. Keep
+        that compatibility parsing inside the SDK and fail closed when the
+        response is ambiguous.
+        """
+        status = self.config_reload_status(timeout=timeout)
+        message = " ".join(status.message.casefold().split())
+        if "not required" in message:
+            return False
+        if "required" in message:
+            return True
+        raise RuntimeError("FreePBX returned an ambiguous config-reload status.")
+
     def apply_config(self, *, timeout: float | None = None) -> ApplyConfigResult:
         """Start FreePBX's asynchronous ``doreload`` apply-config operation.
 
