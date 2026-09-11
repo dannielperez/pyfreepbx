@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, call
 
+import httpx
 import pytest
 
 from pyfreepbx.exceptions import (
     AMIError,
     FreePBXTimeoutError,
+    FreePBXTransportError,
     NotFoundError,
     QueueMemberNotFoundError,
 )
@@ -58,6 +60,89 @@ class TestQueueList:
         assert result[1].members[0].extension == "2001"
         mock_ami.queue_summary.assert_called_once_with()
         mock_ami.queue_status.assert_called_once_with()
+
+    def test_list_enriches_ami_queues_with_rest_descriptions(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_rest = MagicMock()
+        mock_ami.queue_summary.return_value = [
+            QueueStats(queue="86"),
+            QueueStats(queue="99"),
+        ]
+        mock_ami.queue_status.return_value = []
+        mock_rest.get.return_value = {
+            "86": {"extension": "86", "name": "Cristina Valencia Queue"},
+            "99": {"extension": "99", "name": "uniquesec-queue"},
+        }
+
+        result = QueueService(mock_freepbx_client, mock_ami, mock_rest).list()
+
+        assert [(queue.queue_number, queue.name) for queue in result] == [
+            ("86", "Cristina Valencia Queue"),
+            ("99", "uniquesec-queue"),
+        ]
+        mock_rest.get.assert_called_once_with("/queues")
+
+    @pytest.mark.parametrize(
+        "rest_result",
+        [False, [], {"99": {"extension": "99"}}, {"99": "invalid"}],
+    )
+    def test_list_falls_back_to_queue_number_for_missing_or_invalid_descriptions(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+        rest_result: object,
+    ) -> None:
+        mock_rest = MagicMock()
+        mock_ami.queue_summary.return_value = [QueueStats(queue="99")]
+        mock_ami.queue_status.return_value = []
+        mock_rest.get.return_value = rest_result
+
+        result = QueueService(mock_freepbx_client, mock_ami, mock_rest).list()
+
+        assert result[0].name == "99"
+
+    def test_list_falls_back_when_rest_description_lookup_is_unavailable(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_rest = MagicMock()
+        mock_ami.queue_summary.return_value = [QueueStats(queue="99")]
+        mock_ami.queue_status.return_value = []
+        mock_rest.get.side_effect = FreePBXTransportError("unavailable")
+
+        result = QueueService(mock_freepbx_client, mock_ami, mock_rest).list()
+
+        assert result[0].name == "99"
+
+    @pytest.mark.parametrize(
+        "rest_error",
+        [
+            httpx.HTTPStatusError(
+                "server error",
+                request=httpx.Request("GET", "https://pbx.test/queues"),
+                response=httpx.Response(500),
+            ),
+            ValueError("malformed JSON"),
+        ],
+    )
+    def test_list_falls_back_for_raw_http_or_response_decode_failures(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+        rest_error: Exception,
+    ) -> None:
+        mock_rest = MagicMock()
+        mock_ami.queue_summary.return_value = [QueueStats(queue="99")]
+        mock_ami.queue_status.return_value = []
+        mock_rest.get.side_effect = rest_error
+
+        result = QueueService(mock_freepbx_client, mock_ami, mock_rest).list()
+
+        assert result[0].name == "99"
 
     def test_list_empty(self, mock_freepbx_client: MagicMock, mock_ami: MagicMock) -> None:
         mock_ami.queue_summary.return_value = []

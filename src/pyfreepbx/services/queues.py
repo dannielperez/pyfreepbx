@@ -11,8 +11,11 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
+import httpx
+
 from pyfreepbx.exceptions import (
     AMIError,
+    FreePBXError,
     FreePBXTimeoutError,
     NotFoundError,
     QueueMemberNotFoundError,
@@ -57,7 +60,7 @@ class QueueService:
         self._pending_config_timeout = pending_config_timeout
 
     # ------------------------------------------------------------------
-    # Inventory (AMI)
+    # Inventory (AMI + optional FreePBX REST descriptions)
     # ------------------------------------------------------------------
 
     def list(self) -> list[Queue]:
@@ -71,10 +74,11 @@ class QueueService:
                 continue
             queue_number = event.get("Queue", "")
             members_by_queue.setdefault(queue_number, []).append(self._member_from_event(event))
+        queue_names = self._queue_names()
         queues = [
             Queue(
                 queue_number=summary.queue,
-                name=summary.queue,
+                name=queue_names.get(summary.queue, summary.queue),
                 members=members_by_queue.get(summary.queue, []),
             )
             for summary in summaries
@@ -82,6 +86,40 @@ class QueueService:
 
         log.debug("Listed %d queues", len(queues))
         return queues
+
+    def _queue_names(self) -> dict[str, str]:
+        """Return queue descriptions without weakening authoritative AMI inventory.
+
+        The FreePBX queues REST collection exposes configured descriptions as
+        ``{queue: {extension, name}}``. AMI remains authoritative for which
+        queues exist and their live members; REST is optional enrichment so a
+        missing scope, endpoint, or transport failure cannot hide live queues.
+        """
+        if self._rest is None:
+            return {}
+        try:
+            payload = self._rest.get("/queues")
+        except (FreePBXError, httpx.HTTPError, ValueError) as exc:
+            log.warning(
+                "Queue description enrichment unavailable (%s); using queue numbers",
+                type(exc).__name__,
+            )
+            return {}
+        if not isinstance(payload, dict):
+            return {}
+
+        names: dict[str, str] = {}
+        for queue_number, entry in payload.items():
+            if not isinstance(queue_number, str) or not isinstance(entry, dict):
+                continue
+            extension = entry.get("extension")
+            name = entry.get("name")
+            if extension != queue_number or not isinstance(name, str):
+                continue
+            name = name.strip()
+            if name:
+                names[queue_number] = name
+        return names
 
     def list_result(self) -> InventoryListResult[Queue]:
         """Fetch queue inventory with an authoritative-response signal.
