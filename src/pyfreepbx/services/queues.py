@@ -11,6 +11,8 @@ import re
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
+import httpx
+
 from pyfreepbx.exceptions import (
     AMIError,
     FreePBXError,
@@ -97,7 +99,7 @@ class QueueService:
             return {}
         try:
             payload = self._rest.get("/queues")
-        except FreePBXError as exc:
+        except (FreePBXError, httpx.HTTPError, ValueError) as exc:
             log.warning(
                 "Queue description enrichment unavailable (%s); using queue numbers",
                 type(exc).__name__,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, call
 
+import httpx
 import pytest
 
 from pyfreepbx.exceptions import (
@@ -112,6 +113,32 @@ class TestQueueList:
         mock_ami.queue_summary.return_value = [QueueStats(queue="99")]
         mock_ami.queue_status.return_value = []
         mock_rest.get.side_effect = FreePBXTransportError("unavailable")
+
+        result = QueueService(mock_freepbx_client, mock_ami, mock_rest).list()
+
+        assert result[0].name == "99"
+
+    @pytest.mark.parametrize(
+        "rest_error",
+        [
+            httpx.HTTPStatusError(
+                "server error",
+                request=httpx.Request("GET", "https://pbx.test/queues"),
+                response=httpx.Response(500),
+            ),
+            ValueError("malformed JSON"),
+        ],
+    )
+    def test_list_falls_back_for_raw_http_or_response_decode_failures(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+        rest_error: Exception,
+    ) -> None:
+        mock_rest = MagicMock()
+        mock_ami.queue_summary.return_value = [QueueStats(queue="99")]
+        mock_ami.queue_status.return_value = []
+        mock_rest.get.side_effect = rest_error
 
         result = QueueService(mock_freepbx_client, mock_ami, mock_rest).list()
 
