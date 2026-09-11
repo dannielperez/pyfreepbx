@@ -172,6 +172,9 @@ class QueueService:
         reconciles each configured identifier against authoritative AMI
         ``QueueStatus`` data and fails closed unless every existing static
         member can be reconstructed without losing channel type or penalty.
+        A configured/runtime mismatch triggers one bounded apply even when
+        ``fetchNeedReload`` says no reload is pending, because FreePBX can
+        otherwise leave Asterisk's live queue state behind its REST config.
         Existing REST order is retained as the stored membership position;
         additions retain payload order and each payload keeps its own penalty.
 
@@ -257,12 +260,21 @@ class QueueService:
 
         static_events = self._static_member_events(queue)
         missing = [extension for extension in extensions if extension not in static_events]
-        if missing and self._system.config_reload_required(timeout=self._pending_config_timeout):
+        if missing:
+            reload_required = self._system.config_reload_required(
+                timeout=self._pending_config_timeout
+            )
+            if not reload_required:
+                log.warning(
+                    "Queue %s configured members are absent from live status even though "
+                    "FreePBX reports no pending configuration; applying once to reconcile "
+                    "runtime drift",
+                    queue,
+                )
             convergence = self._system.apply_config_and_wait(timeout=self._pending_config_timeout)
             if not convergence.converged:
                 raise RuntimeError(
-                    "FreePBX pending configuration did not converge before "
-                    "queue-member reconciliation."
+                    "FreePBX configuration did not converge before queue-member reconciliation."
                 )
             static_events = self._static_member_events(queue)
 
