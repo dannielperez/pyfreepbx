@@ -637,21 +637,38 @@ class TestPersistentQueueMemberManagement:
             json={"member": "1001,3\n116,0"},
         )
 
-    def test_ensure_member_does_not_apply_when_config_is_current(
+    def test_ensure_member_reapplies_when_runtime_drift_exists_without_pending_config(
         self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
     ) -> None:
         rest = MagicMock()
-        rest.get.return_value = {"member": ["1001"], "dynmembers": []}
-        mock_ami.queue_status.return_value = []
+        rest.get.side_effect = [
+            {"member": ["1001"], "dynmembers": []},
+            {"member": ["1001", "116"], "dynmembers": []},
+        ]
+        rest.put.return_value = True
+        mock_ami.queue_status.side_effect = [
+            [],
+            [
+                {
+                    "Event": "QueueMember",
+                    "Membership": "static",
+                    "Interface": "Local/1001@from-queue/n",
+                    "Penalty": "3",
+                }
+            ],
+        ]
         system = MagicMock()
         system.config_reload_required.return_value = False
+        system.apply_config_and_wait.return_value.converged = True
         svc = QueueService(mock_freepbx_client, mock_ami, rest, system=system)
 
-        with pytest.raises(RuntimeError, match="could not reconcile"):
-            svc.ensure_member_persistent(QueueMemberAdd(queue="99", extension="116"))
-
-        system.apply_config_and_wait.assert_not_called()
-        rest.put.assert_not_called()
+        assert svc.ensure_member_persistent(QueueMemberAdd(queue="99", extension="116"))
+        system.config_reload_required.assert_called_once_with(timeout=10.0)
+        system.apply_config_and_wait.assert_called_once_with(timeout=10.0)
+        rest.put.assert_called_once_with(
+            "/queues/members/99",
+            json={"member": "1001,3\n116,0"},
+        )
 
     def test_ensure_member_stops_when_pending_config_does_not_converge(
         self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
