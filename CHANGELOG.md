@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- `ExtensionService.update_secret()` can now preserve FreePBX device-only
+  extension semantics explicitly by sending User Manager, voicemail, and email
+  inputs with the destructive `updateExtension` mutation. Existing callers keep
+  the previous payload unless they opt in.
 - Persistent queue-member writes now recover when FreePBX configuration is
   pending: apply the existing configuration once, wait for bounded
   convergence, then reread live static members before the replace-style

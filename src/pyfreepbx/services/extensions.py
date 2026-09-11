@@ -366,6 +366,9 @@ class ExtensionService:
         new_secret: str,
         *,
         name: str = "",
+        user_management_enabled: bool | None = None,
+        voicemail_enabled: bool | None = None,
+        email: str = "",
         convergence_timeout: float = DEFAULT_SECRET_UPDATE_CONVERGENCE_TIMEOUT,
     ) -> None:
         """Update only the SIP secret for an extension.
@@ -377,17 +380,23 @@ class ExtensionService:
         if not math.isfinite(convergence_timeout) or convergence_timeout <= 0:
             raise ValueError("convergence_timeout must be finite and greater than zero")
 
+        mutation_input: dict[str, object] = {
+            "extensionId": extension_id,
+            "tech": "pjsip",
+            "channelName": f"PJSIP/{extension_id}",
+            "name": name or extension_id,
+            "extPassword": new_secret,
+        }
+        if user_management_enabled is not None:
+            mutation_input["umEnable"] = user_management_enabled
+        if voicemail_enabled is not None:
+            mutation_input["vmEnable"] = voicemail_enabled
+        if email:
+            mutation_input["email"] = email
+
         log.info("Rotating secret for extension %s via GraphQL", extension_id)
         try:
-            result = self._client.update_extension(
-                {
-                    "extensionId": extension_id,
-                    "tech": "pjsip",
-                    "channelName": f"PJSIP/{extension_id}",
-                    "name": name or extension_id,
-                    "extPassword": new_secret,
-                }
-            )
+            result = self._client.update_extension(mutation_input)
         except (FreePBXTransportError, GraphQLError):
             if self._wait_for_secret_match(
                 extension_id,

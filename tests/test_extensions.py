@@ -594,6 +594,37 @@ class TestExtensionService:
             }
         )
 
+    def test_update_secret_preserves_device_only_extension_contract(
+        self,
+        mock_freepbx_client: MagicMock,
+    ) -> None:
+        mock_freepbx_client.update_extension.return_value = {
+            "status": True,
+            "message": "updated",
+        }
+
+        ExtensionService(mock_freepbx_client).update_secret(
+            "119",
+            "new-secret",
+            name="Guardia 12",
+            user_management_enabled=False,
+            voicemail_enabled=False,
+            email="119@invalid.local",
+        )
+
+        mock_freepbx_client.update_extension.assert_called_once_with(
+            {
+                "extensionId": "119",
+                "tech": "pjsip",
+                "channelName": "PJSIP/119",
+                "name": "Guardia 12",
+                "extPassword": "new-secret",
+                "umEnable": False,
+                "vmEnable": False,
+                "email": "119@invalid.local",
+            }
+        )
+
     def test_update_secret_verifies_when_mutation_status_is_null(
         self,
         mock_freepbx_client: MagicMock,
