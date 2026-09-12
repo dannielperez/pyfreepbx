@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from pyfreepbx.models.firewall import FirewallZone
+from pyfreepbx.models.firewall import FirewallZone  # noqa: TC001 (pydantic runtime)
 
 
 class FirewallNetworkUpdate(BaseModel):

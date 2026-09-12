@@ -18,12 +18,15 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import TYPE_CHECKING
 
 import httpx
 
-from pyfreepbx.config import FreePBXConfig
 from pyfreepbx.exceptions import AuthenticationError
 from pyfreepbx.logging import get_logger
+
+if TYPE_CHECKING:
+    from pyfreepbx.config import FreePBXConfig
 
 log = get_logger("clients.oauth")
 
@@ -118,8 +121,11 @@ class OAuth2Client:
         )
 
         if response.status_code in (400, 401, 403):
-            body = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-            error_msg = body.get("error_description") or body.get("error") or f"HTTP {response.status_code}"
+            content_type = response.headers.get("content-type", "")
+            body = response.json() if content_type.startswith("application/json") else {}
+            error_msg = (
+                body.get("error_description") or body.get("error") or f"HTTP {response.status_code}"
+            )
             log.error("OAuth2 authentication failed: %s", error_msg)
             raise AuthenticationError(f"OAuth2 token request failed: {error_msg}")
 
