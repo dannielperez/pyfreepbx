@@ -72,6 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- Queue-member status now derives the extension from the member `Interface` or
+  `Name` before its `StateInterface`. FreePBX may report the latter as
+  `hint:<extension>@ext-local`; that hint is normalized instead of leaking into
+  consumer-side membership verification.
 - Persistent queue-member writes now preserve existing channel types and
   penalties from FreePBX's generated queue configuration when `QueueStatus`
   omits configured static members. The fallback is a narrowly scoped,

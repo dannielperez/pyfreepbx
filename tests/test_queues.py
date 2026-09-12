@@ -37,6 +37,7 @@ class TestQueueList:
                 "Event": "QueueMember",
                 "Queue": "400",
                 "Name": "Local/1001@from-queue/n",
+                "StateInterface": "hint:1001@ext-local",
                 "MemberName": "Alice",
                 "Paused": "0",
                 "Penalty": "1",
@@ -258,6 +259,22 @@ class TestQueueMembers:
         assert members[0].penalty == 1
         assert members[1].paused is True
         assert members[1].penalty is None
+
+    def test_members_parses_extension_from_hint_state_interface(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.queue_status.return_value = [
+            {
+                "Event": "QueueMember",
+                "Queue": "400",
+                "StateInterface": "hint:119@ext-local",
+                "Penalty": "0",
+            },
+        ]
+
+        members = QueueService(mock_freepbx_client, mock_ami).members("400")
+
+        assert [member.extension for member in members] == ["119"]
 
     def test_members_falls_back_when_queue_filter_is_rejected(
         self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
