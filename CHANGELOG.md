@@ -65,6 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- Persistent queue-member writes now preserve existing channel types and
+  penalties from FreePBX's generated queue configuration when `QueueStatus`
+  omits configured static members. The fallback is a narrowly scoped,
+  read-only AMI `GetConfig` query and still fails closed when neither source
+  can reconstruct the complete replace-style payload.
 - Queue reads and persistent queue-member updates now tolerate FreePBX builds
   that reject the optional AMI `QueueStatus` queue filter with the bare
   `QueueStatus failed` response. The SDK retries that exact compatibility

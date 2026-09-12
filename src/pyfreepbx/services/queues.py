@@ -26,6 +26,8 @@ from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
 from pyfreepbx.services.system import SystemService
 
 if TYPE_CHECKING:
+    import builtins
+
     from pyfreepbx.clients.ami import AMIClient
     from pyfreepbx.clients.freepbx import FreePBXClient
     from pyfreepbx.clients.rest import RestClient
@@ -63,12 +65,12 @@ class QueueService:
     # Inventory (AMI + optional FreePBX REST descriptions)
     # ------------------------------------------------------------------
 
-    def list(self) -> list[Queue]:
+    def list(self) -> builtins.list[Queue]:
         """Fetch queue inventory and members from AMI."""
         self._require_ami("queue inventory")
         assert self._ami is not None
         summaries = self._ami.queue_summary()
-        members_by_queue: dict[str, list[QueueMember]] = {}
+        members_by_queue: dict[str, builtins.list[QueueMember]] = {}
         for event in self._ami.queue_status():
             if event.get("Event") != "QueueMember":
                 continue
@@ -148,7 +150,7 @@ class QueueService:
     # Live status (AMI)
     # ------------------------------------------------------------------
 
-    def stats(self, queue: str | None = None) -> list[QueueStats]:
+    def stats(self, queue: str | None = None) -> builtins.list[QueueStats]:
         """Fetch live queue statistics from AMI QueueSummary.
 
         Args:
@@ -161,7 +163,7 @@ class QueueService:
         assert self._ami is not None
         return self._ami.queue_summary(queue=queue)
 
-    def members(self, queue_number: str) -> list[QueueMember]:
+    def members(self, queue_number: str) -> builtins.list[QueueMember]:
         """Fetch live member status for a queue via AMI QueueStatus.
 
         Returns the current runtime members with their state. This
@@ -178,7 +180,7 @@ class QueueService:
 
         events = self._queue_status_for_queue(queue_number)
 
-        members: list[QueueMember] = []
+        members: builtins.list[QueueMember] = []
         for event in events:
             if event.get("Event") != "QueueMember":
                 continue
@@ -195,7 +197,7 @@ class QueueService:
         """Persist one static member through the FreePBX queues module API."""
         return self.ensure_members_persistent([payload])
 
-    def ensure_members_persistent(self, payloads: list[QueueMemberAdd]) -> bool:
+    def ensure_members_persistent(self, payloads: builtins.list[QueueMemberAdd]) -> bool:
         """Persist one queue's static members through the FreePBX queues API.
 
         Returns ``True`` when the configured member list changed and ``False``
@@ -290,14 +292,21 @@ class QueueService:
 
         return True
 
-    def _persistent_member_inputs(self, queue: str, extensions: list[str]) -> list[str]:
+    def _persistent_member_inputs(
+        self, queue: str, extensions: builtins.list[str]
+    ) -> builtins.list[str]:
         if not extensions:
             return []
         self._require_ami("reconcile persistent queue members")
         assert self._ami is not None
 
+        configured_inputs = self._configured_member_inputs(queue)
         static_events = self._static_member_events(queue)
-        missing = [extension for extension in extensions if extension not in static_events]
+        missing = [
+            extension
+            for extension in extensions
+            if extension not in configured_inputs and extension not in static_events
+        ]
         if missing:
             reload_required = self._system.config_reload_required(
                 timeout=self._pending_config_timeout
@@ -314,18 +323,56 @@ class QueueService:
                 raise RuntimeError(
                     "FreePBX configuration did not converge before queue-member reconciliation."
                 )
+            configured_inputs = self._configured_member_inputs(queue)
             static_events = self._static_member_events(queue)
 
-        missing = [extension for extension in extensions if extension not in static_events]
+        missing = [
+            extension
+            for extension in extensions
+            if extension not in configured_inputs and extension not in static_events
+        ]
         if missing:
             raise RuntimeError(
                 "FreePBX could not reconcile static queue members from live status: "
                 + ", ".join(missing)
             )
         return [
-            self._persistent_member_input(static_events[extension], extension)
+            configured_inputs.get(extension)
+            or self._persistent_member_input(static_events[extension], extension)
             for extension in extensions
         ]
+
+    def _configured_member_inputs(self, queue: str) -> dict[str, str]:
+        """Return lossless REST inputs from generated FreePBX queue config."""
+        assert self._ami is not None
+        try:
+            lines = self._ami.queue_config_member_lines(queue)
+        except AMIError as exc:
+            log.info(
+                "Generated queue configuration unavailable for %s (%s); "
+                "falling back to live status",
+                queue,
+                type(exc).__name__,
+            )
+            return {}
+
+        configured: dict[str, str] = {}
+        for line in lines:
+            interface, separator, remainder = line.partition(",")
+            penalty, _penalty_separator, _metadata = remainder.partition(",")
+            if not separator or not remainder:
+                raise RuntimeError("FreePBX returned an invalid generated queue member.")
+            extension = self._member_extension({"Interface": interface})
+            member_input = self._persistent_member_input(
+                {"Interface": interface, "Penalty": penalty},
+                extension,
+            )
+            if extension in configured:
+                raise RuntimeError(
+                    f"FreePBX returned duplicate configured queue member {extension!r}."
+                )
+            configured[extension] = member_input
+        return configured
 
     def _static_member_events(self, queue: str) -> dict[str, dict[str, str]]:
         static_events: dict[str, dict[str, str]] = {}
@@ -340,7 +387,7 @@ class QueueService:
             static_events[extension] = event
         return static_events
 
-    def _queue_status_for_queue(self, queue: str) -> list[dict[str, str]]:
+    def _queue_status_for_queue(self, queue: str) -> builtins.list[dict[str, str]]:
         """Read one queue, tolerating FreePBX builds that reject the filter.
 
         Some Asterisk/FreePBX deployments return the bare ``QueueStatus

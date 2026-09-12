@@ -322,6 +322,31 @@ class AMIClient(BaseClient):
             params["Queue"] = queue
         return self._collect_events("QueueStatus", **params)
 
+    def queue_config_member_lines(self, queue: str) -> list[str]:
+        """Read generated static-member lines for one queue.
+
+        FreePBX's queues REST API intentionally reduces configured members to
+        extension identifiers.  The generated Asterisk configuration retains
+        the channel type and penalty required for a lossless REST replacement.
+        This narrowly scoped typed read avoids exposing arbitrary Asterisk
+        configuration files to consumers.
+        """
+        self._require_auth()
+        if not queue or "\r" in queue or "\n" in queue:
+            raise ValueError("Queue must be a non-empty single-line value.")
+        response = self._send_action(
+            "GetConfig",
+            Filename="queues_additional.conf",
+            Category=queue,
+        )
+        if response.get("Response") != "Success":
+            raise AMIError(response.get("Message", "GetConfig failed"))
+        return [
+            value.removeprefix("member=")
+            for key, value in sorted(response.items())
+            if key.startswith("Line-") and value.startswith("member=")
+        ]
+
     def queue_pause(
         self,
         *,
