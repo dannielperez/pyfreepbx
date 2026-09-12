@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Preserve the live Asterisk device state on queue members and allow bounded
+  registration waits to use selected-queue evidence when endpoint AMI actions
+  are unavailable.
 - Persistent queue-member writes can now reconstruct FreePBX's complete ordered
   static-member inputs from a bounded, read-only `queues_details` query when
   generated AMI configuration is unavailable or empty. Existing channel types

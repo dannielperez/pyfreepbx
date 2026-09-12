@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from pyfreepbx.models.device import DeviceState
+
 
 class QueueMember(BaseModel):
     """A member (agent) assigned to a queue.
@@ -22,6 +24,7 @@ class QueueMember(BaseModel):
     name: str | None = None
     paused: bool = False
     penalty: int | None = None
+    state: DeviceState = DeviceState.UNKNOWN
     # TODO: state_interface — confirm from GraphQL or AMI
 
     model_config = {"extra": "allow"}

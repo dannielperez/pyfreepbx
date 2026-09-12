@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock
 
+from pyfreepbx.exceptions import AMIError
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.system import SystemInfo
 from pyfreepbx.services.diagnostics import DiagnosticsService
@@ -100,6 +101,37 @@ class TestDiagnosticsServiceEndpointDetails:
         assert result.state is DeviceState.UNAVAILABLE
         assert result.attempts == 1
         svc.endpoint_details.assert_called_once_with("119")
+
+    def test_wait_for_registration_uses_queue_status_when_endpoint_read_denied(
+        self,
+    ) -> None:
+        ami = MagicMock()
+        ami.connected = True
+        ami.authenticated = True
+        ami.pjsip_endpoint.side_effect = AMIError("Permission denied")
+        ami.queue_status.return_value = [
+            {
+                "Event": "QueueMember",
+                "Queue": "99",
+                "Name": "Local/119@from-queue/n",
+                "StateInterface": "hint:119@ext-local",
+                "Status": "6",
+                "Paused": "0",
+                "Penalty": "0",
+            },
+        ]
+        svc = DiagnosticsService(ami=ami, client=MagicMock())
+
+        result = svc.wait_for_registration(
+            "119",
+            timeout_seconds=0,
+            queue_numbers=["99"],
+        )
+
+        assert result.registered is True
+        assert result.state is DeviceState.REGISTERED
+        assert result.attempts == 1
+        ami.queue_status.assert_called_once_with(queue="99")
 
     def test_wait_for_registration_does_not_read_after_deadline(self, monkeypatch) -> None:
         svc = DiagnosticsService()

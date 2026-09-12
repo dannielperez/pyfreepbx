@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+from pyfreepbx.exceptions import AMIError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
@@ -18,6 +19,8 @@ from pyfreepbx.models.device import (
 log = get_logger("services.diagnostics")
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from pyfreepbx.clients.ami import AMIClient
     from pyfreepbx.clients.cdr_db import CdrDbReader
     from pyfreepbx.clients.freepbx import FreePBXClient
@@ -258,22 +261,34 @@ class DiagnosticsService:
         *,
         timeout_seconds: float = 45.0,
         poll_seconds: float = 5.0,
+        queue_numbers: Sequence[str] = (),
     ) -> EndpointRegistrationWaitResult:
         """Wait a bounded interval for an endpoint to become registered.
 
         The SDK owns the polling cadence and Asterisk state normalization so
         consumers do not depend on raw AMI payloads or vendor state strings.
         A zero timeout still performs one authoritative endpoint read.
+        When endpoint actions are unavailable, selected queue numbers allow
+        the same AMI device state to be read from permitted QueueStatus events.
         """
         started = time.monotonic()
         deadline = started + max(timeout_seconds, 0.0)
         attempts = 0
         state = DeviceState.UNKNOWN
 
+        endpoint_read_available = True
         while True:
             attempts += 1
-            details = self.endpoint_details(extension)
-            state = normalize_device_state(str(details.get("state") or ""))
+            if endpoint_read_available:
+                try:
+                    details = self.endpoint_details(extension)
+                    state = normalize_device_state(str(details.get("state") or ""))
+                except AMIError:
+                    if not queue_numbers:
+                        raise
+                    endpoint_read_available = False
+            if not endpoint_read_available:
+                state = self._queue_member_registration_state(extension, queue_numbers)
             if state is DeviceState.REGISTERED:
                 return EndpointRegistrationWaitResult(
                     registered=True,
@@ -295,6 +310,32 @@ class DiagnosticsService:
             attempts=attempts,
             elapsed_seconds=time.monotonic() - started,
         )
+
+    def _queue_member_registration_state(
+        self,
+        extension: str,
+        queue_numbers: Sequence[str],
+    ) -> DeviceState:
+        """Use permitted QueueStatus evidence when endpoint actions are denied."""
+        if self._ami is None or self._client is None:
+            return DeviceState.UNKNOWN
+
+        from pyfreepbx.services.queues import QueueService
+
+        queue_service = QueueService(self._client, ami=self._ami)
+        states = [
+            member.state
+            for queue_number in queue_numbers
+            for member in queue_service.members(queue_number)
+            if member.extension == extension
+        ]
+        if DeviceState.REGISTERED in states:
+            return DeviceState.REGISTERED
+        if DeviceState.UNAVAILABLE in states:
+            return DeviceState.UNAVAILABLE
+        if DeviceState.UNREGISTERED in states:
+            return DeviceState.UNREGISTERED
+        return DeviceState.UNKNOWN
 
     def asterisk_summary(self) -> AsteriskSummary:
         """Build a compact Asterisk summary from AMI data when available."""
