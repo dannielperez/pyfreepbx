@@ -13,6 +13,7 @@ from urllib.parse import quote
 
 import httpx
 
+from pyfreepbx.clients.queue_db import QueueConfigDbUnavailableError
 from pyfreepbx.exceptions import (
     AMIError,
     FreePBXError,
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
 
     from pyfreepbx.clients.ami import AMIClient
     from pyfreepbx.clients.freepbx import FreePBXClient
+    from pyfreepbx.clients.queue_db import QueueConfigDbReader
     from pyfreepbx.clients.rest import RestClient
     from pyfreepbx.schemas.queue_member import (
         QueueMemberAdd,
@@ -53,12 +55,14 @@ class QueueService:
         rest: RestClient | None = None,
         *,
         system: SystemService | None = None,
+        queue_db: QueueConfigDbReader | None = None,
         pending_config_timeout: float = 10.0,
     ) -> None:
         self._client = client
         self._ami = ami
         self._rest = rest
         self._system = system or SystemService(client, ami)
+        self._queue_db = queue_db
         self._pending_config_timeout = pending_config_timeout
 
     # ------------------------------------------------------------------
@@ -333,7 +337,8 @@ class QueueService:
         ]
         if missing:
             raise RuntimeError(
-                "FreePBX could not reconcile static queue members from live status: "
+                "FreePBX could not reconcile static queue members from generated config, "
+                "the read-only configuration database, or live status: "
                 + ", ".join(missing)
             )
         return [
@@ -345,16 +350,26 @@ class QueueService:
     def _configured_member_inputs(self, queue: str) -> dict[str, str]:
         """Return lossless REST inputs from generated FreePBX queue config."""
         assert self._ami is not None
+        lines: list[str] = []
         try:
             lines = self._ami.queue_config_member_lines(queue)
         except AMIError as exc:
             log.info(
                 "Generated queue configuration unavailable for %s (%s); "
-                "falling back to live status",
+                "trying the read-only configuration database",
                 queue,
                 type(exc).__name__,
             )
-            return {}
+        if not lines and self._queue_db is not None:
+            try:
+                lines = self._queue_db.member_lines(queue)
+            except QueueConfigDbUnavailableError as exc:
+                log.info(
+                    "Queue configuration database unavailable for %s (%s); "
+                    "falling back to live status",
+                    queue,
+                    type(exc).__name__,
+                )
 
         configured: dict[str, str] = {}
         for line in lines:

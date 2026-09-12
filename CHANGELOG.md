@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Persistent queue-member writes can now reconstruct FreePBX's complete ordered
+  static-member inputs from a bounded, read-only `queues_details` query when
+  generated AMI configuration is unavailable or empty. Existing channel types
+  and penalties remain intact before the replace-all REST update.
 - `ExtensionService.update_secret()` can now preserve FreePBX device-only
   extension semantics explicitly by sending User Manager, voicemail, and email
   inputs with the destructive `updateExtension` mutation. Existing callers keep

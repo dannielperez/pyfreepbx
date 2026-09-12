@@ -28,6 +28,7 @@ from pyfreepbx.clients.ami import AMIClient
 from pyfreepbx.clients.cdr_db import CdrDbReader
 from pyfreepbx.clients.freepbx import FreePBXClient
 from pyfreepbx.clients.oauth import OAuth2Client
+from pyfreepbx.clients.queue_db import QueueConfigDbReader
 from pyfreepbx.clients.rest import RestClient
 from pyfreepbx.config import AMIConfig, DBConfig, FreePBXConfig
 from pyfreepbx.exceptions import ConfigError
@@ -115,10 +116,11 @@ class FreePBX:
             )
             self._ami_client = AMIClient(self._ami_config)
 
-        # Direct-DB CDR reader (optional). When DB credentials are supplied it
-        # becomes the primary CDR path — a bounded, sargable, read-only query
-        # that avoids the FreePBX 16 fetchAllCdrs full-scan at scale.
+        # Optional direct-DB readers. When credentials are supplied, CDR reads
+        # use a bounded, sargable query and persistent queue updates can recover
+        # lossless static-member inputs when AMI configuration is unavailable.
         self._cdr_db_reader: CdrDbReader | None = None
+        self._queue_db_reader: QueueConfigDbReader | None = None
         if db_host and db_user and db_password:
             self._db_config = DBConfig(
                 host=db_host,
@@ -128,6 +130,7 @@ class FreePBX:
                 password=db_password,
             )
             self._cdr_db_reader = CdrDbReader(self._db_config, timeout=db_timeout)
+            self._queue_db_reader = QueueConfigDbReader(self._db_config, timeout=db_timeout)
 
         # Services
         self._system = SystemService(self._client, self._ami_client)
@@ -137,6 +140,7 @@ class FreePBX:
             self._ami_client,
             self._rest_client,
             system=self._system,
+            queue_db=self._queue_db_reader,
         )
         self._health = HealthService(self._client, self._ami_client)
         self._firewall = FirewallService(self._client)
@@ -257,13 +261,13 @@ class FreePBX:
             ami_username=ami_username,
             ami_secret=ami_secret,
             ami_timeout=ami_timeout,
-            # Direct-DB CDR reader params pass through (db_host/db_user/
+            # Optional direct-DB reader params pass through (db_host/db_user/
             # db_password/db_port/db_name/db_timeout) — see __init__.
             **kwargs,
         )
 
     @classmethod
-    def from_dict(cls, config: dict) -> FreePBX:
+    def from_dict(cls, config: dict[str, Any]) -> FreePBX:
         """Create a FreePBX instance from a configuration dictionary.
 
         Convenience for framework integration. Accepts the same keys as
