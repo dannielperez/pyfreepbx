@@ -286,6 +286,8 @@ class DiagnosticsService:
             if remaining <= 0:
                 break
             time.sleep(min(max(poll_seconds, 0.1), remaining))
+            if time.monotonic() >= deadline:
+                break
 
         return EndpointRegistrationWaitResult(
             registered=False,

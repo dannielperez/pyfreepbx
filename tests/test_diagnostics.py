@@ -101,6 +101,29 @@ class TestDiagnosticsServiceEndpointDetails:
         assert result.attempts == 1
         svc.endpoint_details.assert_called_once_with("119")
 
+    def test_wait_for_registration_does_not_read_after_deadline(self, monkeypatch) -> None:
+        svc = DiagnosticsService()
+        svc.endpoint_details = MagicMock(return_value={"state": "unavailable"})
+        clock = iter([0.0, 0.5, 1.0, 1.0])
+        monkeypatch.setattr(
+            "pyfreepbx.services.diagnostics.time.monotonic",
+            lambda: next(clock),
+        )
+        monkeypatch.setattr(
+            "pyfreepbx.services.diagnostics.time.sleep",
+            lambda _seconds: None,
+        )
+
+        result = svc.wait_for_registration(
+            "119",
+            timeout_seconds=1.0,
+            poll_seconds=5.0,
+        )
+
+        assert result.registered is False
+        assert result.attempts == 1
+        svc.endpoint_details.assert_called_once_with("119")
+
 
 class TestDiagnosticsServiceAsteriskSummary:
     def test_summary_without_ami(self) -> None:
