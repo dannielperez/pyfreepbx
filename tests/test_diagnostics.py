@@ -65,6 +65,65 @@ class TestDiagnosticsServiceEndpointDetails:
         ami.connect.assert_not_called()
         ami.login.assert_not_called()
 
+    def test_wait_for_registration_converges_within_bound(self, monkeypatch) -> None:
+        svc = DiagnosticsService()
+        states = iter(["unavailable", "registered"])
+        sleeps: list[float] = []
+        monkeypatch.setattr(
+            svc,
+            "endpoint_details",
+            lambda _extension: {"state": next(states)},
+        )
+        monkeypatch.setattr(
+            "pyfreepbx.services.diagnostics.time.sleep",
+            sleeps.append,
+        )
+
+        result = svc.wait_for_registration(
+            "119",
+            timeout_seconds=1.0,
+            poll_seconds=0.1,
+        )
+
+        assert result.registered is True
+        assert result.state is DeviceState.REGISTERED
+        assert result.attempts == 2
+        assert sleeps == [0.1]
+
+    def test_wait_for_registration_zero_timeout_reads_once(self) -> None:
+        svc = DiagnosticsService()
+        svc.endpoint_details = MagicMock(return_value={"state": "unavailable"})
+
+        result = svc.wait_for_registration("119", timeout_seconds=0)
+
+        assert result.registered is False
+        assert result.state is DeviceState.UNAVAILABLE
+        assert result.attempts == 1
+        svc.endpoint_details.assert_called_once_with("119")
+
+    def test_wait_for_registration_does_not_read_after_deadline(self, monkeypatch) -> None:
+        svc = DiagnosticsService()
+        svc.endpoint_details = MagicMock(return_value={"state": "unavailable"})
+        clock = iter([0.0, 0.5, 1.0, 1.0])
+        monkeypatch.setattr(
+            "pyfreepbx.services.diagnostics.time.monotonic",
+            lambda: next(clock),
+        )
+        monkeypatch.setattr(
+            "pyfreepbx.services.diagnostics.time.sleep",
+            lambda _seconds: None,
+        )
+
+        result = svc.wait_for_registration(
+            "119",
+            timeout_seconds=1.0,
+            poll_seconds=5.0,
+        )
+
+        assert result.registered is False
+        assert result.attempts == 1
+        svc.endpoint_details.assert_called_once_with("119")
+
 
 class TestDiagnosticsServiceAsteriskSummary:
     def test_summary_without_ami(self) -> None:

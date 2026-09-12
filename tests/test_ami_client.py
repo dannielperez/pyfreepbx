@@ -213,6 +213,34 @@ class TestTypedQueries:
         sent = mock_sock.sendall.call_args[0][0].decode("utf-8")
         assert "Queue: sales" in sent
 
+    def test_queue_config_member_lines_are_narrow_and_ordered(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = (
+            b"Response: Success\r\n"
+            b"Category-000000: 99\r\n"
+            b"Line-000000-000001: member=PJSIP/101,3,Agent 101\r\n"
+            b"Line-000000-000000: member=Local/100@from-queue/n,0,Agent 100\r\n"
+            b"Line-000000-000002: strategy=ringall\r\n\r\n"
+        )
+
+        assert client.queue_config_member_lines("99") == [
+            "Local/100@from-queue/n,0,Agent 100",
+            "PJSIP/101,3,Agent 101",
+        ]
+        sent = mock_sock.sendall.call_args.args[0].decode("utf-8")
+        assert "Action: GetConfig\r\n" in sent
+        assert "Filename: queues_additional.conf\r\n" in sent
+        assert "Category: 99\r\n" in sent
+
+    @pytest.mark.parametrize("queue", ["", "99\r\nAction: Command"])
+    def test_queue_config_member_lines_rejects_ami_injection(
+        self, client: AMIClient, queue: str
+    ) -> None:
+        _make_connected(client)
+
+        with pytest.raises(ValueError, match="single-line"):
+            client.queue_config_member_lines(queue)
+
     def test_pjsip_endpoints(self, client: AMIClient) -> None:
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (

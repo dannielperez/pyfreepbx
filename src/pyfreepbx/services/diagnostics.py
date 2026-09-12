@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
-from pyfreepbx.models.device import DeviceState, normalize_device_state
+from pyfreepbx.models.device import (
+    DeviceState,
+    EndpointRegistrationWaitResult,
+    normalize_device_state,
+)
 
 log = get_logger("services.diagnostics")
 
@@ -246,6 +251,50 @@ class DiagnosticsService:
             "user_agent": user_agent,
             "events": events,
         }
+
+    def wait_for_registration(
+        self,
+        extension: str,
+        *,
+        timeout_seconds: float = 45.0,
+        poll_seconds: float = 5.0,
+    ) -> EndpointRegistrationWaitResult:
+        """Wait a bounded interval for an endpoint to become registered.
+
+        The SDK owns the polling cadence and Asterisk state normalization so
+        consumers do not depend on raw AMI payloads or vendor state strings.
+        A zero timeout still performs one authoritative endpoint read.
+        """
+        started = time.monotonic()
+        deadline = started + max(timeout_seconds, 0.0)
+        attempts = 0
+        state = DeviceState.UNKNOWN
+
+        while True:
+            attempts += 1
+            details = self.endpoint_details(extension)
+            state = normalize_device_state(str(details.get("state") or ""))
+            if state is DeviceState.REGISTERED:
+                return EndpointRegistrationWaitResult(
+                    registered=True,
+                    state=state,
+                    attempts=attempts,
+                    elapsed_seconds=time.monotonic() - started,
+                )
+
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(max(poll_seconds, 0.1), remaining))
+            if time.monotonic() >= deadline:
+                break
+
+        return EndpointRegistrationWaitResult(
+            registered=False,
+            state=state,
+            attempts=attempts,
+            elapsed_seconds=time.monotonic() - started,
+        )
 
     def asterisk_summary(self) -> AsteriskSummary:
         """Build a compact Asterisk summary from AMI data when available."""
