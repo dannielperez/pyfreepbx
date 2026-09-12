@@ -15,6 +15,7 @@ from pyfreepbx.exceptions import (
     NotFoundError,
     QueueMemberNotFoundError,
 )
+from pyfreepbx.models.device import DeviceState
 from pyfreepbx.models.queue import QueueStats
 from pyfreepbx.schemas.queue_member import (
     QueueMemberAdd,
@@ -41,6 +42,7 @@ class TestQueueList:
                 "MemberName": "Alice",
                 "Paused": "0",
                 "Penalty": "1",
+                "Status": "6",
             },
             {
                 "Event": "QueueMember",
@@ -58,6 +60,7 @@ class TestQueueList:
         assert result[0].queue_number == "400"
         assert result[0].name == "400"
         assert result[0].members[0].extension == "1001"
+        assert result[0].members[0].state is DeviceState.REGISTERED
         assert result[1].queue_number == "401"
         assert result[1].members[0].extension == "2001"
         mock_ami.queue_summary.assert_called_once_with()

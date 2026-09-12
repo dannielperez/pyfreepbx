@@ -22,6 +22,7 @@ from pyfreepbx.exceptions import (
     QueueMemberNotFoundError,
 )
 from pyfreepbx.logging import get_logger
+from pyfreepbx.models.device import DeviceState
 from pyfreepbx.models.inventory import InventoryListResult
 from pyfreepbx.models.queue import Queue, QueueMember, QueueStats
 from pyfreepbx.services.system import SystemService
@@ -40,6 +41,17 @@ if TYPE_CHECKING:
     )
 
 log = get_logger("services.queues")
+
+_QUEUE_MEMBER_DEVICE_STATES = {
+    "1": DeviceState.REGISTERED,  # AST_DEVICE_NOT_INUSE
+    "2": DeviceState.REGISTERED,  # AST_DEVICE_INUSE
+    "3": DeviceState.REGISTERED,  # AST_DEVICE_BUSY
+    "4": DeviceState.UNREGISTERED,  # AST_DEVICE_INVALID
+    "5": DeviceState.UNAVAILABLE,  # AST_DEVICE_UNAVAILABLE
+    "6": DeviceState.REGISTERED,  # AST_DEVICE_RINGING
+    "7": DeviceState.REGISTERED,  # AST_DEVICE_RINGINUSE
+    "8": DeviceState.REGISTERED,  # AST_DEVICE_ONHOLD
+}
 
 
 class QueueService:
@@ -607,4 +619,8 @@ class QueueService:
             name=event.get("MemberName") or event.get("Name"),
             paused=event.get("Paused") == "1",
             penalty=penalty,
+            state=_QUEUE_MEMBER_DEVICE_STATES.get(
+                event.get("Status", ""),
+                DeviceState.UNKNOWN,
+            ),
         )
