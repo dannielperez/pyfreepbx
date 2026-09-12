@@ -36,6 +36,18 @@ class TestFreePBXFacade:
         assert pbx.ami_available is True
         pbx.close()
 
+    def test_db_credentials_wire_queue_configuration_reader(self) -> None:
+        pbx = FreePBX(
+            host="pbx.test",
+            api_token="tok",
+            db_host="db.test",
+            db_user="readonly",
+            db_password="secret",
+        )
+
+        assert pbx.queues._queue_db is not None
+        pbx.close()
+
     def test_context_manager(self) -> None:
         with FreePBX(host="pbx.test", api_token="tok") as pbx:
             assert isinstance(pbx, FreePBX)

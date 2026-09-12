@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, call
 import httpx
 import pytest
 
+from pyfreepbx.clients.queue_db import QueueConfigDbUnavailableError
 from pyfreepbx.exceptions import (
     AMIError,
     FreePBXTimeoutError,
@@ -492,6 +493,72 @@ class TestPersistentQueueMemberManagement:
         changed = QueueService(mock_freepbx_client, mock_ami, rest).ensure_member_persistent(
             QueueMemberAdd(queue="99", extension="119", penalty=0)
         )
+
+        assert changed is True
+        rest.put.assert_called_once_with(
+            "/queues/members/99",
+            json={"member": "P1001,4\n119,0"},
+        )
+
+    def test_ensure_member_uses_db_when_generated_config_and_live_status_are_empty(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        rest = MagicMock()
+        rest.get.side_effect = [
+            {"member": ["100", "101"], "dynmembers": []},
+            {"member": ["100", "101", "119"], "dynmembers": []},
+        ]
+        rest.put.return_value = True
+        mock_ami.queue_config_member_lines.return_value = []
+        mock_ami.queue_status.return_value = []
+        queue_db = MagicMock()
+        queue_db.member_lines.return_value = [
+            "PJSIP/100,4",
+            "Local/101@from-queue/n,2",
+        ]
+
+        changed = QueueService(
+            mock_freepbx_client,
+            mock_ami,
+            rest,
+            queue_db=queue_db,
+        ).ensure_member_persistent(QueueMemberAdd(queue="99", extension="119", penalty=0))
+
+        assert changed is True
+        queue_db.member_lines.assert_called_once_with("99")
+        rest.put.assert_called_once_with(
+            "/queues/members/99",
+            json={"member": "P100,4\n101,2\n119,0"},
+        )
+        mock_ami.queue_status.assert_called_once_with(queue="99")
+
+    def test_ensure_member_falls_back_to_live_status_when_queue_db_is_unavailable(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        rest = MagicMock()
+        rest.get.side_effect = [
+            {"member": ["1001"], "dynmembers": []},
+            {"member": ["1001", "119"], "dynmembers": []},
+        ]
+        rest.put.return_value = True
+        mock_ami.queue_config_member_lines.side_effect = AMIError("Permission denied")
+        mock_ami.queue_status.return_value = [
+            {
+                "Event": "QueueMember",
+                "Membership": "static",
+                "Interface": "PJSIP/1001",
+                "Penalty": "4",
+            }
+        ]
+        queue_db = MagicMock()
+        queue_db.member_lines.side_effect = QueueConfigDbUnavailableError("denied")
+
+        changed = QueueService(
+            mock_freepbx_client,
+            mock_ami,
+            rest,
+            queue_db=queue_db,
+        ).ensure_member_persistent(QueueMemberAdd(queue="99", extension="119", penalty=0))
 
         assert changed is True
         rest.put.assert_called_once_with(

@@ -53,8 +53,8 @@ Issues = "https://github.com/dannielperez/pyfreepbx/issues"
 Changelog = "https://github.com/dannielperez/pyfreepbx/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-# Direct-DB CDR reader (clients.cdr_db). Opt-in: the driver is imported lazily
-# so the base install stays driver-free and the GraphQL path needs nothing here.
+# Direct-DB readers (clients.cdr_db and clients.queue_db). Opt-in: the driver is
+# imported lazily so the base install stays driver-free.
 cdr-db = [
     "pymysql>=1.1",
 ]
