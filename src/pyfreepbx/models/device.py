@@ -25,6 +25,15 @@ class DeviceState(str, Enum):
     UNKNOWN = "unknown"
 
 
+class EndpointRegistrationWaitResult(BaseModel):
+    """Typed result of a bounded endpoint-registration convergence wait."""
+
+    registered: bool
+    state: DeviceState = DeviceState.UNKNOWN
+    attempts: int = 0
+    elapsed_seconds: float = 0.0
+
+
 # The one device-state vocabulary. Asterisk spells the same state several ways
 # across AMI actions ("Not in use", "NOT_INUSE", "not in use"), so the lookup is
 # keyed on a normalized spelling — never on a substring, which is how
@@ -97,11 +106,11 @@ class Device(BaseModel):
     For user/extension metadata, see ``Extension``.
     """
 
-    name: str                                # e.g. "PJSIP/1001"
-    extension: str | None = None             # linked extension number
+    name: str  # e.g. "PJSIP/1001"
+    extension: str | None = None  # linked extension number
     state: DeviceState = DeviceState.UNKNOWN
     ip_address: str | None = None
-    user_agent: str | None = None            # e.g. "Yealink SIP-T46U"
+    user_agent: str | None = None  # e.g. "Yealink SIP-T46U"
     # TODO: Confirm whether device list comes from AMI (SIPpeers/PJSIPShowEndpoints)
     # or GraphQL. AMI is more likely for live registration state.
 

@@ -6,6 +6,7 @@ from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
 from pyfreepbx.models.device import (
     Device,
     DeviceState,
+    EndpointRegistrationWaitResult,
     normalize_device_state,
     normalize_sip_status,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "ConfigReloadStatus",
     "Device",
     "DeviceState",
+    "EndpointRegistrationWaitResult",
     "EndpointSummary",
     "Extension",
     "ExtensionType",

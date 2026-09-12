@@ -22,6 +22,7 @@ from pyfreepbx.exceptions import (
 )
 from pyfreepbx.facade import FreePBX
 from pyfreepbx.models.call import ActiveChannel, HangupResult
+from pyfreepbx.models.device import EndpointRegistrationWaitResult
 from pyfreepbx.models.endpoint_state import (
     ENDPOINT_STATE_NOT_FOUND,
     ENDPOINT_STATE_TO_DEVICE_STATE,
@@ -42,6 +43,7 @@ __all__ = [
     "ActiveChannel",
     "AuthenticationError",
     "ConfigError",
+    "EndpointRegistrationWaitResult",
     "FirewallReplacementResult",
     "FirewallReplacementState",
     "FreePBX",

@@ -9,13 +9,18 @@
   retains the existing live-status fallback and fail-closed behavior.
 - `tests/test_ami_client.py`, `tests/test_queues.py`: cover ordering, injection
   rejection, stale runtime state, and AMI permission fallback.
+- `src/pyfreepbx/models/device.py`, `src/pyfreepbx/services/diagnostics.py`:
+  expose a typed, timeout-parameterized endpoint registration convergence wait
+  so consumers make one SDK call instead of parsing and polling AMI state.
+- `tests/test_diagnostics.py`: covers converged and zero-timeout registration
+  waits.
 - `CHANGELOG.md`: records the corrected reconciliation behavior.
 
 ## Validation
 
 - `uv run --extra dev pytest tests/test_ami_client.py tests/test_queues.py -q`
   — 125 passed.
-- `uv run --extra dev pytest -q` — 446 passed, 2 expected XPASS synthetic
+- `.venv/bin/python -m pytest -q` — 448 passed, 2 expected XPASS synthetic
   fixtures.
 - Targeted Ruff and mypy checks for changed source/tests — passed.
 

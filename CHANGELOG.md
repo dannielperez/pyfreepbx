@@ -23,6 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DiagnosticsService.cdr()` — the direct-DB path now takes a much larger page cap (`_DB_HARD_LIMIT = 5000`) than the GraphQL path (`_HARD_LIMIT = 500`). The direct query is sargable/indexed (~ms), so the tight GraphQL cap was pointless there and starved incremental CDR sync — on a busy PBX it hit 500 every run and reported itself perpetually `partial`/backfill-incomplete. The GraphQL path is unchanged.
 
 ### Added
+- `DiagnosticsService.wait_for_registration()` now owns bounded endpoint
+  convergence polling and returns a typed result, keeping AMI state parsing and
+  retry timing out of consumer applications.
 - `QueueService.ensure_member_persistent()` and `ensure_members_persistent()`
   — idempotent static queue-member
   configuration through the official FreePBX 16/17 queues REST endpoint. The
