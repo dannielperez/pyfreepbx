@@ -8,8 +8,7 @@ import httpx
 import pytest
 import respx
 
-from pyfreepbx.clients.oauth import OAuth2Client
-from pyfreepbx.clients.oauth import clear_token_cache
+from pyfreepbx.clients.oauth import OAuth2Client, clear_token_cache
 from pyfreepbx.config import FreePBXConfig
 from pyfreepbx.exceptions import AuthenticationError
 
@@ -99,7 +98,9 @@ class TestOAuth2Client:
         assert route.call_count == 2
 
     @respx.mock
-    def test_token_refresh_on_expiry(self, client: OAuth2Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_token_refresh_on_expiry(
+        self, client: OAuth2Client, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         call_count = 0
 
         def fake_monotonic() -> float:
@@ -151,8 +152,12 @@ class TestOAuth2SharedTokenCache:
                 httpx.Response(200, json={"access_token": "tok-b", "expires_in": 3600}),
             ]
         )
-        cfg_a = FreePBXConfig(host="pbx.test", client_id="a", client_secret="s", port=443, verify_ssl=False)
-        cfg_b = FreePBXConfig(host="pbx.test", client_id="b", client_secret="s", port=443, verify_ssl=False)
+        cfg_a = FreePBXConfig(
+            host="pbx.test", client_id="a", client_secret="s", port=443, verify_ssl=False
+        )
+        cfg_b = FreePBXConfig(
+            host="pbx.test", client_id="b", client_secret="s", port=443, verify_ssl=False
+        )
         assert OAuth2Client(cfg_a).get_token() == "tok-a"
         assert OAuth2Client(cfg_b).get_token() == "tok-b"
         assert route.call_count == 2  # different identities → separate tokens

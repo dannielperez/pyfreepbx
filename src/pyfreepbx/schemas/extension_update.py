@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from pyfreepbx.models.extension import ExtensionType
+from pyfreepbx.models.extension import ExtensionType  # noqa: TC001 (pydantic runtime)
 
 
 class ExtensionUpdate(BaseModel):
