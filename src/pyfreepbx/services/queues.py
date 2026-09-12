@@ -338,8 +338,7 @@ class QueueService:
         if missing:
             raise RuntimeError(
                 "FreePBX could not reconcile static queue members from generated config, "
-                "the read-only configuration database, or live status: "
-                + ", ".join(missing)
+                "the read-only configuration database, or live status: " + ", ".join(missing)
             )
         return [
             configured_inputs.get(extension)
@@ -581,13 +580,23 @@ class QueueService:
 
     @staticmethod
     def _member_extension(event: dict[str, str]) -> str:
-        interface = event.get("StateInterface") or event.get("Interface") or event.get("Name", "")
-        match = re.search(
-            r"(?:Agent|PJSIP|SIP|IAX2|ZAP|DAHDI|Local)/([^@/]+)",
-            interface,
-            re.IGNORECASE,
+        candidates = (
+            event.get("Interface", ""),
+            event.get("Name", ""),
+            event.get("StateInterface", ""),
         )
-        return match.group(1) if match else interface
+        for interface in candidates:
+            match = re.search(
+                r"(?:Agent|PJSIP|SIP|IAX2|ZAP|DAHDI|Local)/([^@/]+)",
+                interface,
+                re.IGNORECASE,
+            )
+            if match:
+                return match.group(1)
+            hint = re.match(r"hint:([^@/]+)@", interface, re.IGNORECASE)
+            if hint:
+                return hint.group(1)
+        return next((candidate for candidate in candidates if candidate), "")
 
     @classmethod
     def _member_from_event(cls, event: dict[str, str]) -> QueueMember:
