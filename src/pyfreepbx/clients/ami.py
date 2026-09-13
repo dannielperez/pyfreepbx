@@ -40,7 +40,13 @@ from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.clients.base import BaseClient
-from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError, AMITimeout
+from pyfreepbx.exceptions import (
+    AMIAuthError,
+    AMIConnectionError,
+    AMIError,
+    AMIPermissionError,
+    AMITimeout,
+)
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.call import ActiveChannel, HangupResult, OriginateResult
 from pyfreepbx.models.device import (
@@ -658,6 +664,8 @@ class AMIClient(BaseClient):
         initial = self._send_action(action, **params)
         if initial.get("Response") != "Success":
             msg = initial.get("Message", f"{action} failed")
+            if msg.strip().casefold() == "permission denied":
+                raise AMIPermissionError(msg)
             raise AMIError(msg)
 
         events: list[dict[str, str]] = []

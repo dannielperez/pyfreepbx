@@ -57,6 +57,10 @@ class AMIError(FreePBXError):
     """Error from the Asterisk Manager Interface."""
 
 
+class AMIPermissionError(AMIError):
+    """AMI rejected an action because the authenticated user lacks permission."""
+
+
 class AMIConnectionError(AMIError):
     """Failed to connect to AMI."""
 

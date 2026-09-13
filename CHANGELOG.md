@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- AMI event actions now raise a typed permission error, and registration
+  fallback reads all selected queues from one bounded QueueStatus snapshot.
+  Transport/authentication failures remain terminal instead of triggering
+  extra fallback traffic.
 - Preserve the live Asterisk device state on queue members and allow bounded
   registration waits to use selected-queue evidence when endpoint AMI actions
   are unavailable.

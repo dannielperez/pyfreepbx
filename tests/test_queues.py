@@ -320,6 +320,37 @@ class TestQueueMembers:
         with pytest.raises(RuntimeError, match="AMI client is required"):
             svc.members("400")
 
+    def test_members_for_queues_uses_one_unfiltered_snapshot(
+        self, mock_freepbx_client: MagicMock, mock_ami: MagicMock
+    ) -> None:
+        mock_ami.queue_status.return_value = [
+            {
+                "Event": "QueueMember",
+                "Queue": "400",
+                "StateInterface": "hint:1001@ext-local",
+                "Status": "1",
+            },
+            {
+                "Event": "QueueMember",
+                "Queue": "401",
+                "StateInterface": "hint:1002@ext-local",
+                "Status": "6",
+            },
+            {
+                "Event": "QueueMember",
+                "Queue": "402",
+                "StateInterface": "hint:1003@ext-local",
+                "Status": "5",
+            },
+        ]
+
+        members = QueueService(mock_freepbx_client, mock_ami).members_for_queues(
+            ["400", "401"]
+        )
+
+        assert [member.extension for member in members] == ["1001", "1002"]
+        mock_ami.queue_status.assert_called_once_with()
+
 
 class TestQueueMemberManagement:
     def test_add_member_runtime_success(
