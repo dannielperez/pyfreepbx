@@ -29,6 +29,7 @@ from pyfreepbx.services.system import SystemService
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Sequence
 
     from pyfreepbx.clients.ami import AMIClient
     from pyfreepbx.clients.freepbx import FreePBXClient
@@ -196,14 +197,32 @@ class QueueService:
 
         events = self._queue_status_for_queue(queue_number)
 
-        members: builtins.list[QueueMember] = []
-        for event in events:
-            if event.get("Event") != "QueueMember":
-                continue
-            members.append(self._member_from_event(event))
+        members = self._members_from_events(events)
 
         log.debug("Queue %s has %d live members", queue_number, len(members))
         return members
+
+    def members_for_queues(
+        self,
+        queue_numbers: Sequence[str],
+    ) -> builtins.list[QueueMember]:
+        """Fetch members for selected queues from one unfiltered QueueStatus read.
+
+        This keeps polling cost constant when a consumer needs registration
+        evidence from several queues and avoids one AMI round trip per queue.
+        """
+        self._require_ami("queue members")
+        assert self._ami is not None
+
+        selected = {str(queue_number) for queue_number in queue_numbers}
+        if not selected:
+            return []
+        events = [
+            event
+            for event in self._ami.queue_status()
+            if event.get("Queue") in selected
+        ]
+        return self._members_from_events(events)
 
     # ------------------------------------------------------------------
     # Persistent member configuration (FreePBX REST)
@@ -412,6 +431,16 @@ class QueueService:
                 raise RuntimeError(f"FreePBX returned duplicate static queue member {extension!r}.")
             static_events[extension] = event
         return static_events
+
+    def _members_from_events(
+        self,
+        events: builtins.list[dict[str, str]],
+    ) -> builtins.list[QueueMember]:
+        return [
+            self._member_from_event(event)
+            for event in events
+            if event.get("Event") == "QueueMember"
+        ]
 
     def _queue_status_for_queue(self, queue: str) -> builtins.list[dict[str, str]]:
         """Read one queue, tolerating FreePBX builds that reject the filter.

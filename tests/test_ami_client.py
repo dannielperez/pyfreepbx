@@ -10,7 +10,7 @@ import pytest
 
 from pyfreepbx.clients.ami import AMIClient, _parse_device_state, _parse_sip_status, _parse_uptime
 from pyfreepbx.config import AMIConfig
-from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError
+from pyfreepbx.exceptions import AMIAuthError, AMIConnectionError, AMIError, AMIPermissionError
 from pyfreepbx.models.call import ActiveChannel
 from pyfreepbx.models.device import DeviceState
 
@@ -311,6 +311,15 @@ class TestRunAction:
         assert len(events) == 2
         assert events[0]["Queue"] == "support"
         assert events[1]["Queue"] == "sales"
+
+    def test_event_action_permission_denied_is_typed(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = (
+            b"Response: Error\r\nMessage: Permission denied\r\n\r\n"
+        )
+
+        with pytest.raises(AMIPermissionError, match="Permission denied"):
+            client.run_action_with_events("PJSIPShowEndpoint")
 
     def test_multi_event_action_is_bounded(self, config: AMIConfig) -> None:
         config.max_events = 2

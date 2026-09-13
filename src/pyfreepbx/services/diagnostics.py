@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
-from pyfreepbx.exceptions import AMIError
+from pyfreepbx.exceptions import AMIPermissionError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.asterisk import AsteriskSummary
 from pyfreepbx.models.cdr import CallDetailRecord, CDRListResult
@@ -283,7 +283,7 @@ class DiagnosticsService:
                 try:
                     details = self.endpoint_details(extension)
                     state = normalize_device_state(str(details.get("state") or ""))
-                except AMIError:
+                except AMIPermissionError:
                     if not queue_numbers:
                         raise
                     endpoint_read_available = False
@@ -325,8 +325,7 @@ class DiagnosticsService:
         queue_service = QueueService(self._client, ami=self._ami)
         states = [
             member.state
-            for queue_number in queue_numbers
-            for member in queue_service.members(queue_number)
+            for member in queue_service.members_for_queues(queue_numbers)
             if member.extension == extension
         ]
         if DeviceState.REGISTERED in states:
