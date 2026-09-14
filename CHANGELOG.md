@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Queue inventory description enrichment now calls FreePBX's collection route
+  with its required trailing slash, avoiding a 404 fallback to numeric labels.
 - AMI event actions now raise a typed permission error, and registration
   fallback reads all selected queues from one bounded QueueStatus snapshot.
   Transport/authentication failures remain terminal instead of triggering

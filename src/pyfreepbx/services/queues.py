@@ -117,7 +117,7 @@ class QueueService:
         if self._rest is None:
             return {}
         try:
-            payload = self._rest.get("/queues")
+            payload = self._rest.get("/queues/")
         except (FreePBXError, httpx.HTTPError, ValueError) as exc:
             log.warning(
                 "Queue description enrichment unavailable (%s); using queue numbers",

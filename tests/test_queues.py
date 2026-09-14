@@ -88,7 +88,7 @@ class TestQueueList:
             ("86", "Cristina Valencia Queue"),
             ("99", "uniquesec-queue"),
         ]
-        mock_rest.get.assert_called_once_with("/queues")
+        mock_rest.get.assert_called_once_with("/queues/")
 
     @pytest.mark.parametrize(
         "rest_result",
