@@ -109,12 +109,17 @@ def test_apply_config_and_wait_reconciles_false_acknowledgement() -> None:
 
 def test_apply_config_and_wait_reconciles_timed_out_acknowledgement() -> None:
     client = MagicMock()
-    client.graphql.mutation.side_effect = FreePBXTimeoutError("response timed out")
     client.graphql.query.side_effect = [
         {"fetchNeedReload": {"status": True, "message": "Doreload is required"}},
         {"fetchNeedReload": {"status": True, "message": "Reload not required"}},
     ]
     now = {"value": 0.0}
+
+    def time_out_mutation(*_args, timeout: float, **_kwargs):
+        now["value"] += timeout
+        raise FreePBXTimeoutError("response timed out")
+
+    client.graphql.mutation.side_effect = time_out_mutation
 
     service = SystemService(
         client,
@@ -129,6 +134,7 @@ def test_apply_config_and_wait_reconciles_timed_out_acknowledgement() -> None:
     assert result.message == "Reload not required"
     assert result.transaction_id == ""
     client.graphql.mutation.assert_called_once()
+    assert client.graphql.mutation.call_args.kwargs["timeout"] == 1.0
     assert client.graphql.query.call_count == 2
 
 
@@ -163,5 +169,23 @@ def test_apply_config_and_wait_rejects_invalid_timeout_before_mutation(timeout: 
 
     with pytest.raises(ValueError, match="timeout must be finite"):
         SystemService(client).apply_config_and_wait(timeout=timeout)
+
+    client.graphql.mutation.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "acknowledgement_timeout",
+    [0.0, -1.0, 2.0, float("inf"), float("nan")],
+)
+def test_apply_config_and_wait_rejects_invalid_acknowledgement_timeout(
+    acknowledgement_timeout: float,
+) -> None:
+    client = MagicMock()
+
+    with pytest.raises(ValueError, match="acknowledgement_timeout must be finite"):
+        SystemService(client).apply_config_and_wait(
+            timeout=2.0,
+            acknowledgement_timeout=acknowledgement_timeout,
+        )
 
     client.graphql.mutation.assert_not_called()
