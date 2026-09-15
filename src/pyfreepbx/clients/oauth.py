@@ -22,7 +22,11 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from pyfreepbx.exceptions import AuthenticationError
+from pyfreepbx.exceptions import (
+    AuthenticationError,
+    FreePBXTimeoutError,
+    FreePBXTransportError,
+)
 from pyfreepbx.logging import get_logger
 
 if TYPE_CHECKING:
@@ -111,14 +115,19 @@ class OAuth2Client:
         """Request a new token via the client_credentials grant."""
         log.debug("Requesting OAuth2 token from %s", self.token_url)
 
-        response = self._http.post(
-            self.token_url,
-            data={
-                "grant_type": "client_credentials",
-                "client_id": self._config.client_id,
-                "client_secret": self._config.client_secret,
-            },
-        )
+        try:
+            response = self._http.post(
+                self.token_url,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": self._config.client_id,
+                    "client_secret": self._config.client_secret,
+                },
+            )
+        except httpx.TimeoutException as exc:
+            raise FreePBXTimeoutError("FreePBX OAuth2 token request timed out") from exc
+        except httpx.TransportError as exc:
+            raise FreePBXTransportError("FreePBX OAuth2 token transport failed") from exc
 
         if response.status_code in (400, 401, 403):
             content_type = response.headers.get("content-type", "")
