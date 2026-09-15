@@ -12,6 +12,7 @@ import math
 import time
 from typing import TYPE_CHECKING
 
+from pyfreepbx.exceptions import FreePBXTimeoutError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.system import (
     ApplyConfigConvergenceResult,
@@ -115,6 +116,7 @@ class SystemService:
         *,
         timeout: float,
         poll_interval: float = 1.0,
+        acknowledgement_timeout: float | None = None,
     ) -> ApplyConfigConvergenceResult:
         """Apply config once and reconcile FreePBX's authoritative reload state.
 
@@ -128,9 +130,30 @@ class SystemService:
             raise ValueError("timeout must be finite and greater than zero")
         if not math.isfinite(poll_interval) or poll_interval <= 0:
             raise ValueError("poll_interval must be finite and greater than zero")
+        acknowledgement_timeout = (
+            min(30.0, timeout / 2.0) if acknowledgement_timeout is None else acknowledgement_timeout
+        )
+        if (
+            not math.isfinite(acknowledgement_timeout)
+            or acknowledgement_timeout <= 0
+            or acknowledgement_timeout >= timeout
+        ):
+            raise ValueError(
+                "acknowledgement_timeout must be finite, greater than zero, and less than timeout"
+            )
 
         deadline = self._clock() + timeout
-        acknowledgement = self.apply_config(timeout=timeout)
+        try:
+            acknowledgement = self.apply_config(timeout=acknowledgement_timeout)
+        except FreePBXTimeoutError:
+            # ``doreload`` is not replay-safe: FreePBX may accept the mutation
+            # and time out before returning its transaction id. Reconcile the
+            # authoritative ``fetchNeedReload`` state within the caller's
+            # remaining aggregate deadline instead of issuing a second write.
+            acknowledgement = ApplyConfigResult(
+                status=False,
+                message="Apply-config acknowledgement timed out.",
+            )
         last_status: ConfigReloadStatus | None = None
 
         while (remaining := deadline - self._clock()) > 0:

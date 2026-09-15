@@ -29,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pending: apply the existing configuration once, wait for bounded
   convergence, then reread live static members before the replace-style
   update. Current configurations and ambiguous reload states still fail
-  closed without issuing a reload.
+  closed without issuing a reload. The non-replay-safe reload mutation uses a
+  strict sub-budget so a timed-out acknowledgement always leaves time to poll
+  the authoritative reload state within the caller's aggregate deadline.
 - `ExtensionService.create_with_generated_secret()` now accepts a keyword-only
   `convergence_timeout` so callers can tune the shared post-create read deadline;
   the backward-compatible default remains 2.5 seconds.
@@ -81,6 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Examples: list_extensions, queue_stats, queue_health, health_check.
 
 ### Fixed
+- `SystemService.apply_config_and_wait()` now treats a timed-out `doreload`
+  acknowledgement as an ambiguous accepted mutation and reconciles
+  `fetchNeedReload` to convergence within the original caller deadline without
+  replaying the non-idempotent mutation.
 - Queue-member status now derives the extension from the member `Interface` or
   `Name` before its `StateInterface`. FreePBX may report the latter as
   `hint:<extension>@ext-local`; that hint is normalized instead of leaking into
