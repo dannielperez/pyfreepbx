@@ -12,6 +12,7 @@ import math
 import time
 from typing import TYPE_CHECKING
 
+from pyfreepbx.exceptions import FreePBXTimeoutError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.system import (
     ApplyConfigConvergenceResult,
@@ -130,7 +131,17 @@ class SystemService:
             raise ValueError("poll_interval must be finite and greater than zero")
 
         deadline = self._clock() + timeout
-        acknowledgement = self.apply_config(timeout=timeout)
+        try:
+            acknowledgement = self.apply_config(timeout=timeout)
+        except FreePBXTimeoutError:
+            # ``doreload`` is not replay-safe: FreePBX may accept the mutation
+            # and time out before returning its transaction id. Reconcile the
+            # authoritative ``fetchNeedReload`` state within the caller's
+            # remaining aggregate deadline instead of issuing a second write.
+            acknowledgement = ApplyConfigResult(
+                status=False,
+                message="Apply-config acknowledgement timed out.",
+            )
         last_status: ConfigReloadStatus | None = None
 
         while (remaining := deadline - self._clock()) > 0:

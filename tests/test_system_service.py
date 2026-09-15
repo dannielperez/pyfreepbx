@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from pyfreepbx.exceptions import FreePBXTimeoutError
 from pyfreepbx.services.system import SystemService
 
 
@@ -102,6 +103,31 @@ def test_apply_config_and_wait_reconciles_false_acknowledgement() -> None:
     assert result.converged is True
     assert result.message == "Reload not required"
     assert sleeps == [0.25]
+    client.graphql.mutation.assert_called_once()
+    assert client.graphql.query.call_count == 2
+
+
+def test_apply_config_and_wait_reconciles_timed_out_acknowledgement() -> None:
+    client = MagicMock()
+    client.graphql.mutation.side_effect = FreePBXTimeoutError("response timed out")
+    client.graphql.query.side_effect = [
+        {"fetchNeedReload": {"status": True, "message": "Doreload is required"}},
+        {"fetchNeedReload": {"status": True, "message": "Reload not required"}},
+    ]
+    now = {"value": 0.0}
+
+    service = SystemService(
+        client,
+        sleep=lambda delay: now.__setitem__("value", now["value"] + delay),
+        clock=lambda: now["value"],
+    )
+
+    result = service.apply_config_and_wait(timeout=2.0, poll_interval=0.25)
+
+    assert result.acknowledged is False
+    assert result.converged is True
+    assert result.message == "Reload not required"
+    assert result.transaction_id == ""
     client.graphql.mutation.assert_called_once()
     assert client.graphql.query.call_count == 2
 
