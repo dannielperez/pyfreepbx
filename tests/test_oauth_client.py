@@ -10,7 +10,11 @@ import respx
 
 from pyfreepbx.clients.oauth import OAuth2Client, clear_token_cache
 from pyfreepbx.config import FreePBXConfig
-from pyfreepbx.exceptions import AuthenticationError
+from pyfreepbx.exceptions import (
+    AuthenticationError,
+    FreePBXTimeoutError,
+    FreePBXTransportError,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -83,6 +87,31 @@ class TestOAuth2Client:
         )
         with pytest.raises(AuthenticationError, match="Bad creds"):
             client.get_token()
+
+    @respx.mock
+    def test_timeout_is_normalized_to_sdk_exception(self, client: OAuth2Client) -> None:
+        respx.post("https://pbx.test:443/admin/api/api/token").mock(
+            side_effect=httpx.ReadTimeout("response timed out")
+        )
+
+        with pytest.raises(FreePBXTimeoutError) as excinfo:
+            client.get_token()
+
+        assert isinstance(excinfo.value.__cause__, httpx.ReadTimeout)
+
+    @respx.mock
+    def test_transport_failure_is_normalized_to_sdk_exception(
+        self,
+        client: OAuth2Client,
+    ) -> None:
+        respx.post("https://pbx.test:443/admin/api/api/token").mock(
+            side_effect=httpx.ConnectError("connection refused")
+        )
+
+        with pytest.raises(FreePBXTransportError) as excinfo:
+            client.get_token()
+
+        assert not isinstance(excinfo.value, FreePBXTimeoutError)
 
     @respx.mock
     def test_invalidate_forces_refetch(self, client: OAuth2Client) -> None:
