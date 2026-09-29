@@ -216,3 +216,26 @@ def test_guard_evidence_only_certifies_fresh_approved_destinations(tmp_path):
     value["alerts"] = [["4301", "registration_unavailable"]]
     status.write_text(json.dumps(value))
     assert route_evidence(status, manifest, ["4301"], 1000) == {"4301": None}
+
+
+def test_bridge_can_anchor_legs_using_different_pbx_tunnel_addresses():
+    other_pbx = "10.253.250.11"
+    evidence = Evidence([PBX, other_pbx], ["4301", "110"])
+    evidence.complete = True
+    for cid, ext, address, port in [
+        ("site", "4301", PBX, 11082),
+        ("guard", "110", other_pbx, 14738),
+    ]:
+        evidence.packet(1, address, 5060, "10.1.1.1", 5060, sip(cid, ext, "999", port=port))
+        evidence.packet(2, "10.1.1.1", 5060, address, 5060, sip(cid, ext, "999", response=True))
+        evidence.packet(3, address, 5060, "10.1.1.1", 5060, sip(cid, ext, "999", method="ACK"))
+    evidence.confirm([("4301", "110")], 4)
+    for address, port in [(PBX, 11082), (other_pbx, 14738)]:
+        for seq in range(100):
+            payload = struct.pack("!BBHII", 128, 0, seq, seq * 160, port) + b"x" * 12
+            evidence.packet(5, "10.1.1.1", 11900, address, port, payload)
+            evidence.packet(5, address, port, "10.1.1.1", 11900, payload)
+    site = next(row for row in evidence.report_calls(25) if row["extension"] == "4301")
+    assert site["capture_complete"] is True
+    assert site["peer_extension"] == "110"
+    assert set(site["voice_packets"].values()) == {100}
