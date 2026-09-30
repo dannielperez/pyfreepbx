@@ -46,6 +46,30 @@ def ipv4_udp(data, link):
     return ('.'.join(str(x) for x in d[12:16]), sp,
             '.'.join(str(x) for x in d[16:20]), dp, bytes(d[h+8:h+length]))
 
+def audio_section(sdp):
+    """Select one active audio section; video direction/codecs do not apply.
+
+    Session direction is inherited unless audio explicitly overrides it. Multiple
+    audio streams remain unsupported rather than being correlated ambiguously.
+    """
+    body = sdp.split('\r\n\r\n', 1)[-1]
+    parts = re.split(r'(?m)(?=^m=)', body)
+    session = parts[0] if not parts[0].startswith('m=') else ''
+    audio = [part for part in parts if part.startswith('m=audio ')]
+    if len(audio) != 1:
+        return None
+    section = audio[0]
+    directions = re.findall(r'(?m)^a=(sendrecv|sendonly|recvonly|inactive)\r?$', section)
+    if not directions:
+        directions = re.findall(r'(?m)^a=(sendrecv|sendonly|recvonly|inactive)\r?$', session)
+    if len(directions) > 1 or (directions and directions[0] != 'sendrecv'):
+        return None
+    if re.search(r'(?m)^c=IN IP4 0\.0\.0\.0\r?$', section or session):
+        return None
+    if not re.search(r'(?m)^c=', section) and re.search(r'(?m)^c=IN IP4 0\.0\.0\.0\r?$', session):
+        return None
+    return section
+
 class Evidence(object):
     def __init__(self, addresses, expected):
         self.addresses = set(addresses)
@@ -110,19 +134,20 @@ class Evidence(object):
             d['answered'] = True
         if 'INVITE' not in field('CSeq') or not (first.startswith('INVITE ') or first.startswith('SIP/2.0 200')):
             return
-        media = re.search(r'(?m)^m=audio (\d+) RTP/AVP ([0-9 ]+)\r?$', s)
-        if not media or 'a=inactive' in s or 'a=sendonly' in s or 'a=recvonly' in s:
+        audio = audio_section(s)
+        media = re.search(r'(?m)^m=audio (\d+) RTP/AVP ([0-9 ]+)\r?$', audio or '')
+        if not media or int(media.group(1)) == 0:
             d['valid'] = False
             return
         pts = set(int(x) for x in media.group(2).split())
         voice = pts & STATIC_VOICE
-        for pt, codec in re.findall(r'(?im)^a=rtpmap:(\d+) ([\w-]+)/', s):
+        for pt, codec in re.findall(r'(?im)^a=rtpmap:(\d+) ([\w-]+)/', audio):
             pt = int(pt)
             if codec.lower() in ('telephone-event', 'cn'):
                 voice.discard(pt)
             elif pt in pts:
                 voice.add(pt)
-        if any(pt >= 96 and pt not in voice and not re.search(r'(?im)^a=rtpmap:' + str(pt) + r' (telephone-event|CN)/', s) for pt in pts):
+        if any(pt >= 96 and pt not in voice and not re.search(r'(?im)^a=rtpmap:' + str(pt) + r' (telephone-event|CN)/', audio) for pt in pts):
             d['valid'] = False
         d['nonvoice'] = pts - voice
         d['voice'] = voice if not d['voice'] else d['voice'] & voice

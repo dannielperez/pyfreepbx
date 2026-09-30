@@ -239,3 +239,46 @@ def test_bridge_can_anchor_legs_using_different_pbx_tunnel_addresses():
     assert site["capture_complete"] is True
     assert site["peer_extension"] == "110"
     assert set(site["voice_packets"].values()) == {100}
+
+
+class TestAudioSdpScope(unittest.TestCase):
+    rtp = TestMedia.rtp
+
+    def test_video_sendonly_does_not_hide_missing_audio(self):
+        # Replay a new audio offer plus video sendonly as emitted by door phones.
+        e = Evidence([PBX], ["30101", "30199"])
+        e.complete = True
+        video = b"m=video 11870 RTP/AVP 104\r\na=rtpmap:104 H264/90000\r\na=sendonly\r\n"
+        for cid, ext, port in [("site", "30101", 11082), ("guard", "30199", 14738)]:
+            e.packet(1, PBX, 5060, "10.1.1.1", 5060, sip(cid, ext, "999", port=port) + video)
+            e.packet(2, "10.1.1.1", 5060, PBX, 5060, sip(cid, ext, "999", response=True) + video)
+            e.packet(3, PBX, 5060, "10.1.1.1", 5060, sip(cid, ext, "999", method="ACK"))
+        e.confirm([("30101", "30199")], 4)
+        for seq in range(200):
+            self.rtp(e, 5, 14738, 0, seq)
+            self.rtp(e, 5, 11082, 1, seq)
+        row = next(r for r in e.report_calls(25) if r["extension"] == "30101")
+        self.assertTrue(row["capture_complete"])
+        self.assertEqual(row["voice_packets"]["site_rx"], 0)
+        self.assertEqual(row["voice_packets"]["operator_rx"], 200)
+
+    def test_audio_hold_zero_port_and_ambiguous_audio_remain_excluded(self):
+        from media_evidence import audio_section
+
+        base = sip("site", "30101", "999").decode()
+        for direction in ["sendonly", "recvonly", "inactive"]:
+            self.assertIsNone(audio_section(base.replace("a=sendrecv", "a=" + direction)))
+        self.assertIsNone(audio_section(base + "m=audio 15000 RTP/AVP 0\r\n"))
+        self.assertIsNone(audio_section(base.replace("c=IN IP4 10.1.1.1", "c=IN IP4 0.0.0.0")))
+        e = Evidence([PBX], ["30101"])
+        e.packet(1, PBX, 5060, "10.1.1.1", 5060, sip("site", "30101", "999", port=0))
+        self.assertFalse(e.dialogs["site"]["valid"])
+
+    def test_audio_direction_overrides_session_but_not_other_media(self):
+        from media_evidence import audio_section
+
+        base = sip("site", "30101", "999").decode()
+        inherited = base.replace("m=audio", "a=inactive\r\nm=audio").replace("a=sendrecv\r\n", "")
+        self.assertIsNone(audio_section(inherited))
+        self.assertIsNotNone(audio_section(inherited + "a=sendrecv\r\n"))
+        self.assertIsNone(audio_section(inherited + "m=video 1234 RTP/AVP 104\r\na=sendrecv\r\n"))
