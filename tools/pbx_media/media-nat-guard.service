@@ -1,0 +1,11 @@
+[Unit]
+Description=Restore approved saved VPN media NAT exemptions
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/sbin/media_nat_guard.py --manifest /etc/media-nat-guard.json --output /var/lib/media-nat-guard/status.json --apply
+TimeoutStartSec=75
+UMask=0077
+NoNewPrivileges=true
