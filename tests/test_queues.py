@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, call
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from pyfreepbx.clients.queue_db import QueueConfigDbUnavailableError
 from pyfreepbx.exceptions import (
@@ -23,6 +24,30 @@ from pyfreepbx.schemas.queue_member import (
     QueueMemberRemove,
 )
 from pyfreepbx.services.queues import QueueService
+
+
+@pytest.mark.parametrize(
+    ("schema", "payload"),
+    [
+        (QueueMemberAdd, {"queue": "400\r\nAction: Originate", "extension": "1001"}),
+        (QueueMemberRemove, {"queue": "400", "extension": "1001\nAction: Command"}),
+        (
+            QueueMemberPause,
+            {
+                "queue": "400",
+                "extension": "1001",
+                "paused": True,
+                "reason": "break\x00ignored",
+            },
+        ),
+    ],
+)
+def test_queue_member_schemas_reject_ami_frame_delimiters(
+    schema: type[QueueMemberAdd | QueueMemberRemove | QueueMemberPause],
+    payload: dict[str, object],
+) -> None:
+    with pytest.raises(ValidationError, match="CR, LF, or NUL"):
+        schema(**payload)
 
 
 class TestQueueList:

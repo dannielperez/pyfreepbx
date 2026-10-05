@@ -65,6 +65,16 @@ log = get_logger("clients.ami")
 
 _CRLF = "\r\n"
 _END = _CRLF + _CRLF
+_AMI_FRAME_DELIMITERS = ("\r", "\n", "\x00")
+
+
+def _render_ami_field(value: Any) -> str:
+    """Render one AMI field component without permitting frame delimiters."""
+    rendered = str(value)
+    if any(delimiter in rendered for delimiter in _AMI_FRAME_DELIMITERS):
+        raise ValueError("AMI fields must not contain CR, LF, or NUL characters.")
+    return rendered
+
 
 # Actions considered safe for a public library to expose directly.
 # Anything outside this set requires run_action() with explicit intent.
@@ -646,9 +656,9 @@ class AMIClient(BaseClient):
         if self._sock is None:
             raise AMIError("Not connected to AMI. Call connect() first.")
 
-        lines = [f"Action: {action}"]
+        lines = [f"Action: {_render_ami_field(action)}"]
         for key, value in params.items():
-            lines.append(f"{key}: {value}")
+            lines.append(f"{_render_ami_field(key)}: {_render_ami_field(value)}")
         message = _CRLF.join(lines) + _END
 
         log.debug(">>> %s (%d params)", action, len(params))

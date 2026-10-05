@@ -298,6 +298,30 @@ class TestRunAction:
         assert sent.startswith("Action: Ping\r\n")
         assert sent.endswith("\r\n\r\n")
 
+    @pytest.mark.parametrize(
+        ("action", "params"),
+        [
+            ("Ping\r\nAction: Originate", {}),
+            ("Ping", {"Queue\nAction": "support"}),
+            ("Ping", {"Queue": "support\r\nAction: Originate"}),
+            ("Ping", {"Queue": "support\x00ignored"}),
+        ],
+    )
+    def test_send_action_rejects_frame_delimiters_without_writing(
+        self,
+        client: AMIClient,
+        action: str,
+        params: dict[str, str],
+    ) -> None:
+        mock_sock = _make_connected(client)
+
+        with pytest.raises(ValueError, match="CR, LF, or NUL"):
+            client.run_action(action, **params)
+
+        mock_sock.sendall.assert_not_called()
+        assert client.connected
+        assert client.authenticated
+
     def test_run_action_with_events(self, client: AMIClient) -> None:
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (
@@ -409,6 +433,19 @@ class TestQueuePause:
         assert "Paused: true\r\n" in sent
         assert "Reason: break\r\n" in sent
 
+    def test_queue_pause_rejects_multiline_reason_without_writing(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+
+        with pytest.raises(ValueError, match="CR, LF, or NUL"):
+            client.queue_pause(
+                queue="support",
+                interface="PJSIP/2001",
+                paused=True,
+                reason="break\r\nAction: Originate",
+            )
+
+        mock_sock.sendall.assert_not_called()
+
     def test_generic_queue_pause_is_not_allowlisted(
         self, client: AMIClient, caplog: pytest.LogCaptureFixture
     ) -> None:
@@ -476,6 +513,18 @@ class TestOriginate:
         )
         sent = mock_sock.sendall.call_args[0][0].decode("utf-8")
         assert "Variable: VISITOR=7,GATE=north\r\n" in sent
+
+    def test_originate_rejects_multiline_variable_without_writing(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+
+        with pytest.raises(ValueError, match="CR, LF, or NUL"):
+            client.originate(
+                channel="Local/2001@from-internal",
+                extension="1500",
+                variables={"VISITOR": "7\r\nAction: Command"},
+            )
+
+        mock_sock.sendall.assert_not_called()
 
     def test_originate_vendor_refusal_raises_amierror(self, client: AMIClient) -> None:
         mock_sock = _make_connected(client)
