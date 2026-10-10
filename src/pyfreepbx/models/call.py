@@ -92,3 +92,17 @@ class ListenOnlySpyResult(BaseModel):
     def queued(self) -> bool:
         """Whether AMI acknowledged the spy originate as successfully queued."""
         return self.attempted and self.response == "Success"
+
+
+class ListenOnlySpyStopResult(BaseModel):
+    """Outcome of stopping one listen-only monitor leg by its chosen identity.
+
+    ``channels`` lists the exact live channels of that monitor leg a ``Hangup``
+    was sent for. Empty with ``attempted`` false means the monitor was no
+    longer live (already ended), which is a successful stop.
+    """
+
+    channel_id: str
+    channels: list[str] = []
+    attempted: bool = False
+    message: str = ""

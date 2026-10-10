@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `AMIClient.endpoint_channel(endpoint, linked_id)` returns the single live
+  `<TECH>/<endpoint>-<hex>` channel of a SIP endpoint within one call, and
+  `None` when it is absent or ambiguous (a spy target is never guessed).
+- `AMIClient.stop_listen_only_spy(channel_id)` hangs up only the live channels
+  of the monitor leg UniqueOS originated as `channel_id`, and never the call
+  being spied on.
+- The `FreePBX` facade now delegates `endpoint_channel`,
+  `start_listen_only_spy` and `stop_listen_only_spy`.
 - `AMIClient.start_listen_only_spy()`: a typed, listen-only supervisor monitor.
   It originates `ChanSpy` toward a monitor line with the fixed options `uqbES`
   (exact target, no beep, bridged calls only, exit on hangup). It never uses
