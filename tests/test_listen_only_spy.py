@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pyfreepbx.clients.ami import LISTEN_ONLY_SPY_OPTIONS, AMIClient
+from pyfreepbx.clients.ami import LISTEN_ONLY_SPY_OPTIONS, AMIClient, monitor_line_channel
 from pyfreepbx.config import AMIConfig
 from pyfreepbx.exceptions import AMIError
-from pyfreepbx.models.call import ActiveChannel
+from pyfreepbx.models.call import ActiveChannel, ListenOnlySpyState
 
 TARGET = "PJSIP/1901-0000002a"
 LINKED = "1700000000.42"
@@ -266,21 +266,79 @@ def test_stop_rejects_a_malformed_identity(client: AMIClient) -> None:
     read.assert_not_called()
 
 
-def test_spy_state_reads_only_the_monitor_legs_own_channel(client: AMIClient) -> None:
-    live = [
-        _channel("PJSIP/1905-0000003a", linked="uqmon-1", unique="uqmon-1"),
-        _channel("Local/x-00000001;2", linked="uqmon-1", unique="1700000000.9"),
-    ]
+def _spy_leg(state: str, application: str) -> ActiveChannel:
+    return ActiveChannel(
+        channel="PJSIP/1905-0000003a",
+        unique_id="uqmon-1",
+        linked_id="uqmon-1",
+        state=state,
+        application=application,
+    )
+
+
+@pytest.mark.parametrize(
+    ("live", "expected"),
+    [
+        ([_spy_leg("Up", "ChanSpy")], ListenOnlySpyState.LISTENING),
+        ([_spy_leg("Up", "")], ListenOnlySpyState.RINGING),  # answered, not attached
+        ([_spy_leg("Ringing", "")], ListenOnlySpyState.RINGING),
+        ([], ListenOnlySpyState.ENDED),
+        (
+            [_channel("Local/x-00000001;2", linked="uqmon-1", unique="17.9")],
+            ListenOnlySpyState.ENDED,
+        ),
+    ],
+)
+def test_spy_state_is_typed_provider_truth(
+    client: AMIClient,
+    live: list,
+    expected: ListenOnlySpyState,
+) -> None:
     with patch.object(client, "active_channels", return_value=live) as read:
-        assert client.listen_only_spy_state(channel_id="uqmon-1") == "Up"
+        assert client.listen_only_spy_state(channel_id="uqmon-1") is expected
     read.assert_called_once_with(linked_id="uqmon-1")
 
-    with patch.object(client, "active_channels", return_value=[]):
-        assert client.listen_only_spy_state(channel_id="uqmon-1") is None
 
+def test_spy_state_rejects_a_malformed_identity(client: AMIClient) -> None:
     with patch.object(client, "active_channels") as read, pytest.raises(ValueError):
         client.listen_only_spy_state(channel_id="uqmon 1")
     read.assert_not_called()
+
+
+def test_active_channels_types_the_running_application(client: AMIClient) -> None:
+    with patch.object(
+        client,
+        "_collect_events",
+        return_value=[
+            {
+                "Event": "CoreShowChannel",
+                "Channel": "PJSIP/1905-0000003a",
+                "Uniqueid": "uqmon-1",
+                "Linkedid": "uqmon-1",
+                "ChannelStateDesc": "Up",
+                "Application": "ChanSpy",
+            },
+        ],
+    ):
+        (channel,) = client.active_channels(linked_id="uqmon-1")
+    assert channel.application == "ChanSpy"
+
+
+@pytest.mark.parametrize(
+    ("tech", "extension", "expected"),
+    [("pjsip", "1905", "PJSIP/1905"), ("SIP", "1905", "SIP/1905")],
+)
+def test_monitor_line_channel(tech: str, extension: str, expected: str) -> None:
+    assert monitor_line_channel(tech, extension) == expected
+
+
+@pytest.mark.parametrize(
+    ("tech", "extension"),
+    [("iax2", "1905"), ("", "1905"), ("pjsip", "1905,w"), ("pjsip", "")],
+)
+def test_monitor_line_channel_refuses_what_cannot_monitor(tech: str, extension: str) -> None:
+    with pytest.raises(ValueError):
+        monitor_line_channel(tech, extension)
 
 
 def test_facade_delegates_monitor_operations() -> None:

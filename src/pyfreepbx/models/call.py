@@ -6,6 +6,8 @@ Result types for AMI write actions that place/redirect calls. These are
 
 from __future__ import annotations
 
+from enum import Enum
+
 from pydantic import BaseModel
 
 
@@ -45,6 +47,7 @@ class ActiveChannel(BaseModel):
     state: str = ""
     caller_id_num: str = ""
     connected_line_num: str = ""
+    application: str = ""
 
 
 class HangupResult(BaseModel):
@@ -106,3 +109,15 @@ class ListenOnlySpyStopResult(BaseModel):
     channels: list[str] = []
     attempted: bool = False
     message: str = ""
+
+
+class ListenOnlySpyState(str, Enum):
+    """Provider truth about one listen-only monitor leg.
+
+    ``LISTENING`` means the leg is answered *and* running ``ChanSpy``; an
+    answered leg that has not attached yet is still ``RINGING``.
+    """
+
+    RINGING = "ringing"
+    LISTENING = "listening"
+    ENDED = "ended"

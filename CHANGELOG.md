@@ -14,9 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `AMIClient.stop_listen_only_spy(channel_id)` hangs up only the live channels
   of the monitor leg UniqueOS originated as `channel_id`, and never the call
   being spied on.
-- `AMIClient.listen_only_spy_state(channel_id)` returns the monitor leg's
-  live channel state (`"Up"` once listening), or `None` when the leg is not
-  live. This is the read-only evidence used to mark monitoring active.
+- `AMIClient.listen_only_spy_state(channel_id)` returns a typed
+  `ListenOnlySpyState`:
+  - `LISTENING` only when the monitor leg is up *and* running `ChanSpy`;
+  - `RINGING` while it is ringing or answered but not yet attached;
+  - `ENDED` when the leg is absent.
+  It raises on transport failure and never reports that as `ENDED`.
+- `ActiveChannel.application` exposes the running dialplan application from
+  `CoreShowChannels`.
+- `monitor_line_channel(tech, extension)` (also exposed as
+  `FreePBX.monitor_line_channel`) builds a monitor line's dialable channel
+  (`pjsip` + `1905` → `PJSIP/1905`). It refuses technologies that cannot
+  receive a monitor leg.
 - The `FreePBX` facade now delegates `endpoint_channel`,
   `start_listen_only_spy`, `stop_listen_only_spy` and `listen_only_spy_state`.
 - `AMIClient.start_listen_only_spy()`: a typed, listen-only supervisor monitor.
