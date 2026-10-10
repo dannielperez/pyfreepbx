@@ -34,6 +34,7 @@ Actions that should remain in *service* layer logic (not raw client):
 
 from __future__ import annotations
 
+import re
 import socket
 import uuid
 from contextlib import suppress
@@ -48,7 +49,12 @@ from pyfreepbx.exceptions import (
     AMITimeout,
 )
 from pyfreepbx.logging import get_logger
-from pyfreepbx.models.call import ActiveChannel, HangupResult, OriginateResult
+from pyfreepbx.models.call import (
+    ActiveChannel,
+    HangupResult,
+    ListenOnlySpyResult,
+    OriginateResult,
+)
 from pyfreepbx.models.device import (
     Device,
     DeviceState,
@@ -86,6 +92,31 @@ _SAFE_ACTIONS: frozenset[str] = frozenset(
         "QueueRemove",
     }
 )
+
+
+# Listen-only ChanSpy (Asterisk ``app_chanspy``). The option set is fixed here
+# and never caller-supplied:
+#   u  chanprefix is a fully specified channel name: exactly one target, and
+#      the digit-built channel selection is disabled;
+#   q  no beep / channel announcement (notification is consumer policy);
+#   b  only spy on a bridged (live) conversation;
+#   E  exit when the spied-on channel hangs up;
+#   S  exit when no channel is left to spy on.
+# Deliberately absent: ``d`` (DTMF 5/6 would switch to whisper/barge), ``w``/
+# ``W``/``B`` (the monitor could talk), ``r`` (an extra recording), ``X``/``c``/
+# ``e``/``o`` (change the target or drop one side of the conversation).
+LISTEN_ONLY_SPY_OPTIONS = "uqbES"
+
+# A monitor line is a bare endpoint (``PJSIP/1905``); a spy target is one live
+# channel instance (``PJSIP/1901-0000002a``). Nothing else — no Local/ chains,
+# no separators that could smuggle a second application argument.
+_MONITOR_CHANNEL_RE = re.compile(r"^(?:PJSIP|SIP)/[A-Za-z0-9_.+-]{1,64}$")
+_SPY_TARGET_CHANNEL_RE = re.compile(r"^(?:PJSIP|SIP)/[A-Za-z0-9_.+-]{1,64}-[0-9A-Fa-f]{8}$")
+_LINKED_ID_RE = re.compile(r"^[0-9]{1,20}\.[0-9]{1,10}$")
+_SPY_IDENTITY_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+_SPY_VARIABLE_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
+_SPY_VARIABLE_VALUE_RE = re.compile(r"^[A-Za-z0-9_.:-]{0,64}$")
+_BRIDGED_CHANNEL_STATE = "Up"
 
 
 class AMIClient(BaseClient):
@@ -637,6 +668,117 @@ class AMIClient(BaseClient):
             message=response.get("Message", ""),
         )
 
+    def start_listen_only_spy(
+        self,
+        *,
+        monitor_channel: str,
+        target_channel: str,
+        target_linked_id: str,
+        channel_id: str,
+        account_code: str = "",
+        caller_id: str = "",
+        timeout_ms: int = 20000,
+        action_id: str = "",
+        variables: dict[str, str] | None = None,
+    ) -> ListenOnlySpyResult:
+        """Ring ``monitor_channel`` and, once answered, listen to one live call.
+
+        Issues ``Originate`` with ``Application: ChanSpy`` and the fixed
+        :data:`LISTEN_ONLY_SPY_OPTIONS`: the monitor hears both sides of the
+        target's conversation and cannot be heard by either party, cannot cycle
+        to another channel, and leaves when the target hangs up. No extra
+        recording is made.
+
+        Read-before-write: the exact ``target_channel``/``target_linked_id``
+        pair must be the single live, bridged (``Up``) channel in an immediate
+        ``CoreShowChannels`` read, otherwise nothing is sent. A stale channel
+        name therefore can never attach the monitor to a later, unrelated call.
+
+        ``channel_id`` becomes the monitor leg's Asterisk uniqueid (and so its
+        linkedid), and ``account_code`` its CDR ``accountcode``. Consumers use
+        that deterministic identity to keep the monitor leg out of call, CDR and
+        interaction ingestion — a monitor is not a call.
+
+        Like :meth:`originate`, success means AMI *queued* the request. The
+        consumer must treat monitoring as active only on ``ChanSpyStart``.
+
+        Raises:
+            ValueError: A channel, linked id, caller id or variable is
+                malformed, or the monitor line would spy on itself.
+            AMIError: AMI refused the originate.
+        """
+        self._require_auth()
+        _validate_spy_request(
+            monitor_channel=monitor_channel,
+            target_channel=target_channel,
+            target_linked_id=target_linked_id,
+            caller_id=caller_id,
+            variables=variables,
+            channel_id=channel_id,
+            account_code=account_code,
+        )
+        aid = action_id or uuid.uuid4().hex
+
+        def _result(*, attempted: bool, response: str, message: str) -> ListenOnlySpyResult:
+            return ListenOnlySpyResult(
+                action_id=aid,
+                monitor_channel=monitor_channel,
+                target_channel=target_channel,
+                target_linked_id=target_linked_id,
+                channel_id=channel_id,
+                options=LISTEN_ONLY_SPY_OPTIONS,
+                attempted=attempted,
+                response=response,
+                message=message,
+            )
+
+        matches = [
+            item
+            for item in self.active_channels(linked_id=target_linked_id)
+            if item.channel == target_channel
+        ]
+        if len(matches) != 1:
+            return _result(
+                attempted=False,
+                response="NotFound" if not matches else "Ambiguous",
+                message=(
+                    "The exact live channel was not found."
+                    if not matches
+                    else "More than one live channel matched the exact identity."
+                ),
+            )
+        if matches[0].state != _BRIDGED_CHANNEL_STATE:
+            return _result(
+                attempted=False,
+                response="NotBridged",
+                message="The target channel is not in a live conversation.",
+            )
+
+        params: dict[str, Any] = {
+            "Channel": monitor_channel,
+            "Application": "ChanSpy",
+            "Data": f"{target_channel},{LISTEN_ONLY_SPY_OPTIONS}",
+            "Async": "true",
+            "Timeout": timeout_ms,
+            "ActionID": aid,
+            "ChannelId": channel_id,
+        }
+        if account_code:
+            params["Account"] = account_code
+        if caller_id:
+            params["CallerID"] = caller_id
+        if variables:
+            params["Variable"] = ",".join(f"{k}={v}" for k, v in variables.items())
+
+        response = self._send_action("Originate", **params)
+        if response.get("Response") != "Success":
+            raise AMIError(response.get("Message", "Originate was not accepted"))
+        return _result(
+            attempted=True,
+            response=response.get("Response", ""),
+            message=response.get("Message", ""),
+        )
+
     # ------------------------------------------------------------------
     # Protocol I/O (private)
     # ------------------------------------------------------------------
@@ -814,3 +956,35 @@ def _parse_sip_status(raw: str) -> DeviceState:
     "UNREACHABLE", "Lagged (123 ms)"
     """
     return normalize_sip_status(raw)
+
+
+def _validate_spy_request(
+    *,
+    monitor_channel: str,
+    target_channel: str,
+    target_linked_id: str,
+    caller_id: str,
+    variables: dict[str, str] | None,
+    channel_id: str,
+    account_code: str,
+) -> None:
+    """Reject anything that could widen a listen-only spy request."""
+    if not _MONITOR_CHANNEL_RE.fullmatch(monitor_channel or ""):
+        raise ValueError("monitor_channel must be a single PJSIP/SIP endpoint")
+    if not _SPY_TARGET_CHANNEL_RE.fullmatch(target_channel or ""):
+        raise ValueError("target_channel must be one live PJSIP/SIP channel name")
+    if not _LINKED_ID_RE.fullmatch(target_linked_id or ""):
+        raise ValueError("target_linked_id must be an Asterisk linked id")
+    if target_channel.startswith(f"{monitor_channel}-"):
+        raise ValueError("a monitor line cannot spy on its own channel")
+    if not _SPY_IDENTITY_RE.fullmatch(channel_id or ""):
+        raise ValueError("channel_id must be a simple identifier token")
+    if account_code and not _SPY_IDENTITY_RE.fullmatch(account_code):
+        raise ValueError("account_code must be a simple identifier token")
+    if any(not character.isprintable() for character in caller_id or ""):
+        raise ValueError("caller_id must be a single line of printable text")
+    for name, value in (variables or {}).items():
+        if not _SPY_VARIABLE_NAME_RE.fullmatch(name) or not (
+            _SPY_VARIABLE_VALUE_RE.fullmatch(value)
+        ):
+            raise ValueError("spy channel variables must be simple NAME=value tokens")
