@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `AMIClient.start_listen_only_spy()`: a typed, listen-only supervisor monitor.
+  It originates `ChanSpy` toward a monitor line with the fixed options `uqbES`
+  (exact target, no beep, bridged calls only, exit on hangup). It never uses
+  `d`/`w`/`W`/`B`/`r`/`X`/`c`/`e`/`o`, so the monitor cannot whisper, barge,
+  record or change target. Channel names, linked id, caller id, variables and
+  the `ChannelId`/`Account` identity are validated before any I/O. The exact
+  target must be the single live bridged channel in an immediate
+  `CoreShowChannels` read, or nothing is sent. Success means only that AMI
+  queued the request: `ChanSpyStart` is the proof that monitoring started.
+
 ### Changed
 - Queue inventory description enrichment now calls FreePBX's collection route
   with its required trailing slash, avoiding a 404 fallback to numeric labels.

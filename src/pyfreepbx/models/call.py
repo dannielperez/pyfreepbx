@@ -66,3 +66,29 @@ class HangupResult(BaseModel):
     def accepted(self) -> bool:
         """Whether AMI acknowledged the hangup request."""
         return self.attempted and self.response == "Success"
+
+
+class ListenOnlySpyResult(BaseModel):
+    """Outcome of a listen-only ``ChanSpy`` originate toward a monitor line.
+
+    ``attempted`` is false when the target channel/linked-id pair was not live
+    (or was ambiguous) in the immediately preceding channel read, so no write
+    was sent. ``queued`` only means AMI accepted the asynchronous originate;
+    the authoritative proof that monitoring started is the later
+    ``ChanSpyStart`` event (and ``ChanSpyStop``/``Hangup`` that it ended).
+    """
+
+    action_id: str
+    monitor_channel: str
+    target_channel: str
+    target_linked_id: str
+    channel_id: str = ""
+    options: str = ""
+    attempted: bool = False
+    response: str = ""
+    message: str = ""
+
+    @property
+    def queued(self) -> bool:
+        """Whether AMI acknowledged the spy originate as successfully queued."""
+        return self.attempted and self.response == "Success"
