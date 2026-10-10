@@ -53,6 +53,8 @@ from pyfreepbx.models.call import (
     ActiveChannel,
     HangupResult,
     ListenOnlySpyResult,
+    ListenOnlySpyState,
+    ListenOnlySpyStopResult,
     OriginateResult,
 )
 from pyfreepbx.models.device import (
@@ -114,6 +116,7 @@ _MONITOR_CHANNEL_RE = re.compile(r"^(?:PJSIP|SIP)/[A-Za-z0-9_.+-]{1,64}$")
 _SPY_TARGET_CHANNEL_RE = re.compile(r"^(?:PJSIP|SIP)/[A-Za-z0-9_.+-]{1,64}-[0-9A-Fa-f]{8}$")
 _LINKED_ID_RE = re.compile(r"^[0-9]{1,20}\.[0-9]{1,10}$")
 _SPY_IDENTITY_RE = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
+_ENDPOINT_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]{1,64}$")
 _SPY_VARIABLE_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]{0,31}$")
 _SPY_VARIABLE_VALUE_RE = re.compile(r"^[A-Za-z0-9_.:-]{0,64}$")
 _BRIDGED_CHANNEL_STATE = "Up"
@@ -626,6 +629,7 @@ class AMIClient(BaseClient):
                     state=event.get("ChannelStateDesc", ""),
                     caller_id_num=event.get("CallerIDNum", ""),
                     connected_line_num=event.get("ConnectedLineNum", ""),
+                    application=event.get("Application", ""),
                 )
             )
         return channels
@@ -667,6 +671,27 @@ class AMIClient(BaseClient):
             response=response.get("Response", ""),
             message=response.get("Message", ""),
         )
+
+    def endpoint_channel(self, *, endpoint: str, linked_id: str) -> ActiveChannel | None:
+        """Return the one live channel of ``endpoint`` within call ``linked_id``.
+
+        Asterisk names a SIP endpoint's channel instance ``<TECH>/<endpoint>-
+        <8 hex>``; this is the place that knows that convention. Returns None
+        when the endpoint has no channel in that call, or more than one (an
+        ambiguous target is never guessed).
+        """
+        self._require_auth()
+        if not _ENDPOINT_NAME_RE.fullmatch(endpoint or ""):
+            raise ValueError("endpoint must be a simple SIP endpoint name")
+        if not _LINKED_ID_RE.fullmatch(linked_id or ""):
+            raise ValueError("linked_id must be an Asterisk linked id")
+        pattern = re.compile(rf"^(?:PJSIP|SIP)/{re.escape(endpoint)}-[0-9A-Fa-f]{{8}}$")
+        matches = [
+            item
+            for item in self.active_channels(linked_id=linked_id)
+            if pattern.fullmatch(item.channel)
+        ]
+        return matches[0] if len(matches) == 1 else None
 
     def start_listen_only_spy(
         self,
@@ -777,6 +802,52 @@ class AMIClient(BaseClient):
             attempted=True,
             response=response.get("Response", ""),
             message=response.get("Message", ""),
+        )
+
+    def listen_only_spy_state(self, *, channel_id: str) -> ListenOnlySpyState:
+        """Provider truth about the monitor leg ``channel_id``.
+
+        ``LISTENING`` only when the leg is up and running ``ChanSpy`` (an
+        answered leg that has not attached yet is ``RINGING``); ``ENDED`` when
+        no channel carries that identity. Read-only. A transport failure
+        raises — it is never reported as ``ENDED``.
+        """
+        self._require_auth()
+        if not _SPY_IDENTITY_RE.fullmatch(channel_id or ""):
+            raise ValueError("channel_id must be a simple identifier token")
+        for item in self.active_channels(linked_id=channel_id):
+            if item.linked_id == channel_id and item.unique_id == channel_id:
+                if item.state == _BRIDGED_CHANNEL_STATE and item.application == "ChanSpy":
+                    return ListenOnlySpyState.LISTENING
+                return ListenOnlySpyState.RINGING
+        return ListenOnlySpyState.ENDED
+
+    def stop_listen_only_spy(self, *, channel_id: str) -> ListenOnlySpyStopResult:
+        """Hang up the monitor leg UniqueOS originated as ``channel_id``.
+
+        The monitor leg's uniqueid is ``channel_id`` (set via ``ChannelId`` on
+        originate), so it is also its linked id. Only live channels carrying
+        that exact linked id are hung up — never the spied-on call. No retry.
+        """
+        self._require_auth()
+        if not _SPY_IDENTITY_RE.fullmatch(channel_id or ""):
+            raise ValueError("channel_id must be a simple identifier token")
+        live = [
+            item
+            for item in self.active_channels(linked_id=channel_id)
+            if item.linked_id == channel_id
+        ]
+        if not live:
+            return ListenOnlySpyStopResult(
+                channel_id=channel_id,
+                message="The monitor leg is no longer live.",
+            )
+        for item in live:
+            self._send_action("Hangup", Channel=item.channel)
+        return ListenOnlySpyStopResult(
+            channel_id=channel_id,
+            channels=[item.channel for item in live],
+            attempted=True,
         )
 
     # ------------------------------------------------------------------
@@ -988,3 +1059,21 @@ def _validate_spy_request(
             _SPY_VARIABLE_VALUE_RE.fullmatch(value)
         ):
             raise ValueError("spy channel variables must be simple NAME=value tokens")
+
+
+_MONITOR_LINE_TECH = {"pjsip": "PJSIP", "sip": "SIP"}
+
+
+def monitor_line_channel(tech: str, extension: str) -> str:
+    """The dialable channel of a monitor line (``pjsip``, ``1905`` → ``PJSIP/1905``).
+
+    Raises:
+        ValueError: The technology cannot receive a monitor leg, or the
+            extension is not a simple endpoint name.
+    """
+    prefix = _MONITOR_LINE_TECH.get((tech or "").strip().lower())
+    if prefix is None:
+        raise ValueError("monitor line technology is not supported")
+    if not _ENDPOINT_NAME_RE.fullmatch(extension or ""):
+        raise ValueError("extension must be a simple SIP endpoint name")
+    return f"{prefix}/{extension}"

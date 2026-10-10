@@ -43,7 +43,14 @@ from pyfreepbx.services.recordings import RecordingService
 from pyfreepbx.services.system import SystemService
 
 if TYPE_CHECKING:
-    from pyfreepbx.models.call import HangupResult, OriginateResult
+    from pyfreepbx.models.call import (
+        ActiveChannel,
+        HangupResult,
+        ListenOnlySpyResult,
+        ListenOnlySpyState,
+        ListenOnlySpyStopResult,
+        OriginateResult,
+    )
 
 log = get_logger("facade")
 
@@ -390,6 +397,39 @@ class FreePBX:
         if not self._ami_client.authenticated:
             self.connect_ami()
         return self._ami_client.hangup_channel(channel=channel, linked_id=linked_id)
+
+    def _authenticated_ami(self) -> AMIClient:
+        if self._ami_client is None:
+            raise ConfigError("AMI is not configured. Provide ami_username and ami_secret.")
+        if not self._ami_client.authenticated:
+            self.connect_ami()
+        return self._ami_client
+
+    @staticmethod
+    def monitor_line_channel(tech: str, extension: str) -> str:
+        """Dialable channel of a monitor line; see :func:`clients.ami.monitor_line_channel`."""
+        from pyfreepbx.clients.ami import monitor_line_channel
+
+        return monitor_line_channel(tech, extension)
+
+    def endpoint_channel(self, *, endpoint: str, linked_id: str) -> ActiveChannel | None:
+        """The one live channel of ``endpoint`` in call ``linked_id`` (or None)."""
+        return self._authenticated_ami().endpoint_channel(
+            endpoint=endpoint,
+            linked_id=linked_id,
+        )
+
+    def start_listen_only_spy(self, **kwargs: Any) -> ListenOnlySpyResult:
+        """Listen-only supervisor monitor; see :meth:`AMIClient.start_listen_only_spy`."""
+        return self._authenticated_ami().start_listen_only_spy(**kwargs)
+
+    def listen_only_spy_state(self, *, channel_id: str) -> ListenOnlySpyState:
+        """RINGING / LISTENING / ENDED for one monitor leg (raises when unreadable)."""
+        return self._authenticated_ami().listen_only_spy_state(channel_id=channel_id)
+
+    def stop_listen_only_spy(self, *, channel_id: str) -> ListenOnlySpyStopResult:
+        """Hang up one monitor leg by its chosen identity (never the spied call)."""
+        return self._authenticated_ami().stop_listen_only_spy(channel_id=channel_id)
 
     # ------------------------------------------------------------------
     # Combined queries
