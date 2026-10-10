@@ -802,6 +802,21 @@ class AMIClient(BaseClient):
             message=response.get("Message", ""),
         )
 
+    def listen_only_spy_state(self, *, channel_id: str) -> str | None:
+        """Channel state of the monitor leg ``channel_id`` (``"Up"`` once the
+        monitor line answered and ``ChanSpy`` runs), or None when not live.
+
+        Read-only; this is the provider evidence a consumer uses to mark a
+        monitor session active instead of trusting the originate acknowledgement.
+        """
+        self._require_auth()
+        if not _SPY_IDENTITY_RE.fullmatch(channel_id or ""):
+            raise ValueError("channel_id must be a simple identifier token")
+        for item in self.active_channels(linked_id=channel_id):
+            if item.linked_id == channel_id and item.unique_id == channel_id:
+                return item.state
+        return None
+
     def stop_listen_only_spy(self, *, channel_id: str) -> ListenOnlySpyStopResult:
         """Hang up the monitor leg UniqueOS originated as ``channel_id``.
 

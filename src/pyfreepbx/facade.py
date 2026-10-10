@@ -415,6 +415,10 @@ class FreePBX:
         """Listen-only supervisor monitor; see :meth:`AMIClient.start_listen_only_spy`."""
         return self._authenticated_ami().start_listen_only_spy(**kwargs)
 
+    def listen_only_spy_state(self, *, channel_id: str) -> str | None:
+        """Live channel state of one monitor leg, or None when it is not live."""
+        return self._authenticated_ami().listen_only_spy_state(channel_id=channel_id)
+
     def stop_listen_only_spy(self, *, channel_id: str) -> ListenOnlySpyStopResult:
         """Hang up one monitor leg by its chosen identity (never the spied call)."""
         return self._authenticated_ami().stop_listen_only_spy(channel_id=channel_id)

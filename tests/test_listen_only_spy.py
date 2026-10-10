@@ -266,6 +266,23 @@ def test_stop_rejects_a_malformed_identity(client: AMIClient) -> None:
     read.assert_not_called()
 
 
+def test_spy_state_reads_only_the_monitor_legs_own_channel(client: AMIClient) -> None:
+    live = [
+        _channel("PJSIP/1905-0000003a", linked="uqmon-1", unique="uqmon-1"),
+        _channel("Local/x-00000001;2", linked="uqmon-1", unique="1700000000.9"),
+    ]
+    with patch.object(client, "active_channels", return_value=live) as read:
+        assert client.listen_only_spy_state(channel_id="uqmon-1") == "Up"
+    read.assert_called_once_with(linked_id="uqmon-1")
+
+    with patch.object(client, "active_channels", return_value=[]):
+        assert client.listen_only_spy_state(channel_id="uqmon-1") is None
+
+    with patch.object(client, "active_channels") as read, pytest.raises(ValueError):
+        client.listen_only_spy_state(channel_id="uqmon 1")
+    read.assert_not_called()
+
+
 def test_facade_delegates_monitor_operations() -> None:
     from pyfreepbx.facade import FreePBX
 
@@ -282,7 +299,9 @@ def test_facade_delegates_monitor_operations() -> None:
         channel_id="uqmon-1",
     )
     pbx.stop_listen_only_spy(channel_id="uqmon-1")
+    pbx.listen_only_spy_state(channel_id="uqmon-1")
 
     ami.endpoint_channel.assert_called_once_with(endpoint="1901", linked_id=LINKED)
     ami.start_listen_only_spy.assert_called_once()
     ami.stop_listen_only_spy.assert_called_once_with(channel_id="uqmon-1")
+    ami.listen_only_spy_state.assert_called_once_with(channel_id="uqmon-1")
