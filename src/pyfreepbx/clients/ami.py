@@ -88,6 +88,7 @@ _SAFE_ACTIONS: frozenset[str] = frozenset(
         "SIPshowpeer",
         "PJSIPShowEndpoints",
         "PJSIPShowEndpoint",
+        "DeviceStateList",
         "QueueSummary",
         "QueueStatus",
         "QueueAdd",
@@ -436,6 +437,46 @@ class AMIClient(BaseClient):
                 )
             )
         log.debug("PJSIPShowEndpoints returned %d devices", len(devices))
+        return devices
+
+    def device_state_list(self, *, technology: str = "PJSIP") -> list[Device]:
+        """List device states for one channel technology via ``DeviceStateList``.
+
+        Least-privilege registration source: ``DeviceStateList`` needs only the
+        ``call`` or ``reporting`` write class, whereas ``PJSIPShowEndpoints``
+        needs ``system`` (which also authorizes Hangup, Reload, DBPut,
+        MixMonitor and PJSIPNotify). Asterisk reports one ``DeviceStateChange``
+        event per known device (``Device: PJSIP/1001``, ``State: NOT_INUSE``).
+
+        Device state is not registration state: ``UNAVAILABLE`` means "no
+        reachable contact" and cannot separate *unregistered* from
+        *unreachable*, so it maps to ``DeviceState.UNAVAILABLE``; states the
+        shared vocabulary does not know map to ``UNKNOWN``. No user agent or
+        contact address is available from this action.
+
+        Reference:
+            https://docs.asterisk.org/Asterisk_18_Documentation/API_Documentation/AMI_Actions/DeviceStateList
+        """
+        self._require_auth()
+        prefix = f"{technology}/"
+        devices: list[Device] = []
+        for event in self._collect_events("DeviceStateList"):
+            if event.get("Event") != "DeviceStateChange":
+                continue
+            name = event.get("Device", "")
+            if not name.startswith(prefix):
+                continue
+            endpoint = name[len(prefix) :]
+            if not endpoint:
+                continue
+            devices.append(
+                Device(
+                    name=endpoint,
+                    extension=endpoint,
+                    state=_parse_device_state(event.get("State", "")),
+                )
+            )
+        log.debug("DeviceStateList returned %d %s devices", len(devices), technology)
         return devices
 
     def pjsip_endpoint(self, endpoint: str) -> list[dict[str, str]]:

@@ -259,6 +259,37 @@ class TestTypedQueries:
         assert devices[1].name == "1002"
         assert devices[1].state == DeviceState.UNAVAILABLE
 
+    def test_device_state_list_maps_pjsip_devices_only(self, client: AMIClient) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = (
+            b"Response: Success\r\nEventList: start\r\n\r\n"
+            b"Event: DeviceStateChange\r\nDevice: PJSIP/1001\r\nState: NOT_INUSE\r\n\r\n"
+            b"Event: DeviceStateChange\r\nDevice: PJSIP/1002\r\nState: UNAVAILABLE\r\n\r\n"
+            b"Event: DeviceStateChange\r\nDevice: PJSIP/1003\r\nState: INUSE\r\n\r\n"
+            b"Event: DeviceStateChange\r\nDevice: Queue:400_avail\r\nState: NOT_INUSE\r\n\r\n"
+            b"Event: DeviceStateChange\r\nDevice: Custom:DND1001\r\nState: UNKNOWN\r\n\r\n"
+            b"Event: DeviceStateListComplete\r\nEventList: Complete\r\n\r\n"
+        )
+
+        devices = client.device_state_list()
+
+        assert [(d.name, d.extension, d.state) for d in devices] == [
+            ("1001", "1001", DeviceState.REGISTERED),
+            ("1002", "1002", DeviceState.UNAVAILABLE),
+            ("1003", "1003", DeviceState.REGISTERED),
+        ]
+        sent = mock_sock.sendall.call_args[0][0].decode()
+        assert sent.startswith("Action: DeviceStateList")
+
+    def test_device_state_list_permission_denied_raises_typed_error(
+        self, client: AMIClient
+    ) -> None:
+        mock_sock = _make_connected(client)
+        mock_sock.recv.return_value = b"Response: Error\r\nMessage: Permission denied\r\n\r\n"
+
+        with pytest.raises(AMIPermissionError):
+            client.device_state_list()
+
     def test_sip_peers(self, client: AMIClient) -> None:
         mock_sock = _make_connected(client)
         mock_sock.recv.return_value = (

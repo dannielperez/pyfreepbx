@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pyfreepbx.exceptions import AMIError
+from pyfreepbx.exceptions import AMIError, AMIPermissionError
 from pyfreepbx.logging import get_logger
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.health import (
@@ -138,7 +138,16 @@ class HealthService:
                 error = "AMI is not configured"
                 log.warning("endpoint_snapshot requires AMI — skipping.")
                 return EndpointSnapshot(error=error)
-            devices = self._ami.pjsip_endpoints()
+            source = "pjsip_endpoints"
+            try:
+                devices = self._ami.pjsip_endpoints()
+            except AMIPermissionError:
+                # A least-privilege reporting AMI user (no ``system`` write
+                # class) is denied PJSIPShowEndpoints; DeviceStateList needs
+                # only ``call``/``reporting`` and still yields per-endpoint state.
+                log.info("PJSIPShowEndpoints denied; using DeviceStateList")
+                devices = self._ami.device_state_list()
+                source = "device_state_list"
         except (AMIError, OSError) as exc:
             log.error("Failed to fetch endpoints: %s", exc)
             return EndpointSnapshot(error=str(exc) or "AMI endpoint fetch failed")
@@ -157,6 +166,7 @@ class HealthService:
                 unknown=counts[DeviceState.UNKNOWN],
             ),
             complete=True,
+            source=source,
         )
 
     def endpoint_summary(self) -> EndpointSummary | None:
