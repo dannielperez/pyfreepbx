@@ -62,6 +62,11 @@ class EndpointSnapshot(BaseModel):
     summary: EndpointSummary = Field(default_factory=EndpointSummary)
     complete: bool = False
     error: str = ""
+    # Which AMI action produced the items: "pjsip_endpoints" (registration
+    # state, user agent) or "device_state_list" (least-privilege fallback:
+    # device state only; UNAVAILABLE does not separate unregistered from
+    # unreachable). Empty on an incomplete snapshot.
+    source: str = ""
 
 
 class DiskSpace(BaseModel):

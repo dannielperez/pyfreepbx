@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `AMIClient.device_state_list(technology="PJSIP")` lists per-endpoint device
+  state through `DeviceStateList`, which needs only the `call`/`reporting`
+  write class. `PJSIPShowEndpoints` needs `system`, which also authorizes
+  Hangup, Reload, DBPut, MixMonitor and PJSIPNotify.
+- `HealthService.endpoint_snapshot()` falls back to `DeviceStateList` when
+  `PJSIPShowEndpoints` is denied, so a least-privilege reporting AMI user still
+  gets a complete snapshot. `EndpointSnapshot.source` records which action was
+  used. Device state cannot separate *unregistered* from *unreachable*: both
+  read as `UNAVAILABLE`.
 - `AMIClient.endpoint_channel(endpoint, linked_id)` returns the single live
   `<TECH>/<endpoint>-<hex>` channel of a SIP endpoint within one call, and
   `None` when it is absent or ambiguous (a spy target is never guessed).

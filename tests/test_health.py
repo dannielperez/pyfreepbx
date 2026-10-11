@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from pyfreepbx.exceptions import AMIError
+from pyfreepbx.exceptions import AMIError, AMIPermissionError
 from pyfreepbx.models.device import Device, DeviceState
 from pyfreepbx.models.health import HealthStatus
 from pyfreepbx.models.queue import QueueStats
@@ -153,6 +153,52 @@ class TestEndpointSnapshot:
         assert result.complete is False
         assert result.items == []
         assert result.error == "timed out"
+
+    def test_permission_denied_falls_back_to_device_state_list(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_ami.pjsip_endpoints.side_effect = AMIPermissionError("Permission denied")
+        devices = [
+            Device(extension="1001", name="1001", state=DeviceState.REGISTERED),
+            Device(extension="1002", name="1002", state=DeviceState.UNAVAILABLE),
+        ]
+        mock_ami.device_state_list.return_value = devices
+
+        result = HealthService(mock_freepbx_client, mock_ami).endpoint_snapshot()
+
+        assert result.complete is True
+        assert result.source == "device_state_list"
+        assert result.items == devices
+        assert result.summary.registered == 1
+        assert result.summary.unavailable == 1
+
+    def test_full_privilege_path_is_unchanged(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_ami.pjsip_endpoints.return_value = []
+
+        result = HealthService(mock_freepbx_client, mock_ami).endpoint_snapshot()
+
+        assert result.source == "pjsip_endpoints"
+        mock_ami.device_state_list.assert_not_called()
+
+    def test_fallback_also_denied_is_explicitly_incomplete(
+        self,
+        mock_freepbx_client: MagicMock,
+        mock_ami: MagicMock,
+    ) -> None:
+        mock_ami.pjsip_endpoints.side_effect = AMIPermissionError("Permission denied")
+        mock_ami.device_state_list.side_effect = AMIPermissionError("Permission denied")
+
+        result = HealthService(mock_freepbx_client, mock_ami).endpoint_snapshot()
+
+        assert result.complete is False
+        assert result.error == "Permission denied"
+        assert result.source == ""
 
     def test_process_control_exception_is_not_swallowed(
         self,
