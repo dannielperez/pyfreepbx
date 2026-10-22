@@ -233,7 +233,23 @@ class DiagnosticsService:
                 "events": [],
             }
 
-        events = self._ami.pjsip_endpoint(extension)
+        try:
+            events = self._ami.pjsip_endpoint(extension)
+        except AMIPermissionError:
+            # Detail access requires system privileges. Registration reporting
+            # can use the existing call/reporting action without exposing auth
+            # objects or granting control privileges.
+            devices = self._ami.device_state_list()
+            device = next((item for item in devices if item.extension == extension), None)
+            return {
+                "extension": extension,
+                "state": device.state.value if device is not None else "unknown",
+                "ip_address": "",
+                "user_agent": "",
+                "events": [],
+                "source": "DeviceStateList",
+                "detail_available": False,
+            }
         state = "unknown"
         ip_address = ""
         user_agent = ""
@@ -283,6 +299,12 @@ class DiagnosticsService:
                 try:
                     details = self.endpoint_details(extension)
                     state = normalize_device_state(str(details.get("state") or ""))
+                    if (
+                        state is DeviceState.UNKNOWN
+                        and details.get("source") == "DeviceStateList"
+                        and queue_numbers
+                    ):
+                        endpoint_read_available = False
                 except AMIPermissionError:
                     if not queue_numbers:
                         raise

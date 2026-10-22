@@ -334,3 +334,31 @@ class TestDiagnosticsServiceCDRGraphQL:
             assert "required for CDR queries" in str(exc)
         else:
             raise AssertionError("expected RuntimeError")
+
+
+@pytest.mark.parametrize(
+    ("devices", "expected"),
+    [
+        ([Device(name="1001", extension="1001", state=DeviceState.REGISTERED)], "registered"),
+        ([Device(name="1002", extension="1002", state=DeviceState.REGISTERED)], "unknown"),
+        ([Device(name="1001", extension="1001", state=DeviceState.UNAVAILABLE)], "unavailable"),
+    ],
+)
+def test_endpoint_details_falls_back_to_reporting_state(devices, expected):
+    ami = MagicMock()
+    ami.pjsip_endpoint.side_effect = AMIPermissionError("Permission denied")
+    ami.device_state_list.return_value = devices
+    details = DiagnosticsService(ami=ami).endpoint_details("1001")
+    assert details["state"] == expected
+    assert details["source"] == "DeviceStateList"
+    assert details["detail_available"] is False
+    assert details["ip_address"] == ""
+    ami.device_state_list.assert_called_once_with()
+
+
+def test_endpoint_details_does_not_hide_denied_reporting():
+    ami = MagicMock()
+    ami.pjsip_endpoint.side_effect = AMIPermissionError("Permission denied")
+    ami.device_state_list.side_effect = AMIPermissionError("Reporting denied")
+    with pytest.raises(AMIPermissionError, match="Reporting denied"):
+        DiagnosticsService(ami=ami).endpoint_details("1001")
