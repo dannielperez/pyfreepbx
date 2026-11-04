@@ -647,6 +647,7 @@ class QueueService:
             extension=cls._member_extension(event),
             name=event.get("MemberName") or event.get("Name"),
             paused=event.get("Paused") == "1",
+            paused_reason=event.get("PausedReason"),
             penalty=penalty,
             state=_QUEUE_MEMBER_DEVICE_STATES.get(
                 event.get("Status", ""),
