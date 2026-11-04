@@ -23,6 +23,7 @@ class QueueMember(BaseModel):
     extension: str
     name: str | None = None
     paused: bool = False
+    paused_reason: str | None = None
     penalty: int | None = None
     state: DeviceState = DeviceState.UNKNOWN
     # TODO: state_interface — confirm from GraphQL or AMI
