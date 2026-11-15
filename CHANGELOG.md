@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `CdrDbReader.fetch_cdr(..., ended_after=...)` and
+  `DiagnosticsService.cdr(..., ended_after=...)` keep only calls that ended at
+  or after an instant (`calldate + duration`). Asterisk writes a CDR row at
+  hangup with `calldate` set to the call start, so a long call lands below the
+  newest page a consumer reads; this finds it inside a bounded `calldate`
+  range, which stays the sargable index bound. The GraphQL path applies the
+  filter to its fetched page.
 - `AMIClient.device_state_list(technology="PJSIP")` lists per-endpoint device
   state through `DeviceStateList`, which needs only the `call`/`reporting`
   write class. `PJSIPShowEndpoints` needs `system`, which also authorizes

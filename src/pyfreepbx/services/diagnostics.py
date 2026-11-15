@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
 from pyfreepbx.exceptions import AMIPermissionError
@@ -116,9 +116,14 @@ class DiagnosticsService:
         extension: str = "",
         date_from: str = "",
         date_to: str = "",
+        ended_after: str = "",
         limit: int = 100,
     ) -> CDRListResult:
         """Fetch and normalize CDR rows.
+
+        ``ended_after`` keeps only calls that ended at or after that instant
+        (see :meth:`CdrDbReader.fetch_cdr`). It is applied in SQL on the
+        direct-DB path and to the fetched page on the GraphQL path.
 
         When a direct-DB reader is configured it is the primary path — a
         bounded, sargable query that avoids the FreePBX 16 ``fetchAllCdrs``
@@ -131,18 +136,31 @@ class DiagnosticsService:
                 extension=extension,
                 date_from=date_from,
                 date_to=date_to,
+                ended_after=ended_after,
                 limit=max(1, min(limit, self._DB_HARD_LIMIT)),
             )
 
         if self._client is None:
             raise RuntimeError("A GraphQL client or DB reader is required for CDR queries")
 
-        return self._cdr_via_graphql(
+        result = self._cdr_via_graphql(
             extension=extension,
             date_from=date_from,
             date_to=date_to,
             limit=max(1, min(limit, self._HARD_LIMIT)),
         )
+        if not ended_after:
+            return result
+        ended = _parse_datetime(_to_cdr_gql_date(ended_after))
+        if ended is None:
+            return result
+        items = [
+            item
+            for item in result.items
+            if item.timestamp is not None
+            and item.timestamp + timedelta(seconds=item.duration) >= ended
+        ]
+        return CDRListResult(items=items, total=len(items), truncated=result.truncated)
 
     def _cdr_via_db(
         self,
@@ -150,6 +168,7 @@ class DiagnosticsService:
         extension: str,
         date_from: str,
         date_to: str,
+        ended_after: str,
         limit: int,
     ) -> CDRListResult:
         """Fetch CDR rows via the read-only direct-DB reader (primary path)."""
@@ -160,6 +179,7 @@ class DiagnosticsService:
             date_from=date_from,
             date_to=date_to,
             extension=extension,
+            ended_after=ended_after,
             limit=limit,
         )
         items = [_to_cdr_item(row) for row in rows]

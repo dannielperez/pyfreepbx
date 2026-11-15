@@ -74,6 +74,7 @@ class CdrDbReader(BaseClient):
         date_from: str = "",
         date_to: str = "",
         extension: str = "",
+        ended_after: str = "",
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """Return up to ``limit`` CDR rows in the window, newest first.
@@ -82,6 +83,13 @@ class CdrDbReader(BaseClient):
         ``calldate`` column so the existing index is used. A date-only bound is
         expanded to a day boundary (``end`` becomes the following midnight, so
         the ``date_to`` day is included). An absent bound is simply omitted.
+
+        ``ended_after`` keeps only rows whose call ended at or after that
+        instant (``calldate + duration``). Asterisk stamps ``calldate`` at call
+        start but writes the row at hangup, so a long call lands far below the
+        newest rows a newest-first page reads; this finds it without reading
+        every row in between. It only narrows rows inside the ``calldate``
+        range, which stays the sargable, indexed bound — pass one.
         """
         import pymysql  # type: ignore[import-untyped]  # lazy: opt-in DB path
 
@@ -101,6 +109,11 @@ class CdrDbReader(BaseClient):
         if end:
             where.append("calldate < %s")
             params.append(end)
+
+        ended = _to_sql_dt(ended_after, is_end=False)
+        if ended:
+            where.append("calldate + INTERVAL duration SECOND >= %s")
+            params.append(ended)
 
         if extension:
             where.append("(src = %s OR dst = %s OR cnum = %s)")
